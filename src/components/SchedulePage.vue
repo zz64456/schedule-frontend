@@ -2,27 +2,67 @@
   <div class="min-h-screen bg-gray-50">
     <!-- Navbar - Enhanced -->
     <nav class="bg-gray-800 shadow-lg">
-      <div class="max-w-full mx-auto px-6 lg:px-8">
-        <div class="flex justify-between h-20">
+      <div class="max-w-full mx-auto px-4 md:px-6 lg:px-8">
+        <div class="flex justify-between h-16 md:h-20">
           <div class="flex items-center">
-            <h1 class="text-2xl font-bold text-white">藏琢診所班表系統</h1>
+            <h1 class="text-xl md:text-2xl font-bold text-white">藏琢診所班表系統</h1>
           </div>
-          <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-2 md:space-x-4">
             <template v-if="!isAdmin">
-              <button @click="showLoginModal = true" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all hover:shadow-lg font-medium">
+              <button @click="handleLoginClick" class="px-4 py-2 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all hover:shadow-lg font-medium">
                 登入
               </button>
             </template>
             <template v-else>
-              <span class="text-gray-200 font-medium">{{ adminName }}</span>
-              <button @click="confirmSchedule" class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all hover:shadow-lg font-medium">
-                確認該月班表
+              <span class="hidden md:inline text-gray-200 font-medium">{{ adminName }}</span>
+
+              <!-- Management Dropdown -->
+              <div class="relative management-dropdown">
+                <button
+                  @click="showManagementMenu = !showManagementMenu"
+                  class="px-3 py-2 md:px-5 md:py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all hover:shadow-lg font-medium flex items-center gap-1 md:gap-2"
+                >
+                  <span class="hidden md:inline">管理</span>
+                  <span class="md:hidden">⚙</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                <div
+                  v-if="showManagementMenu"
+                  class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                >
+                  <button
+                    @click="openAddEmployeeModal"
+                    class="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700 font-medium transition-colors"
+                  >
+                    ➕ 新增員工
+                  </button>
+                  <button
+                    @click="openAddDepartmentModal"
+                    class="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700 font-medium transition-colors"
+                  >
+                    ➕ 新增部門
+                  </button>
+                </div>
+              </div>
+
+              <button v-if="!schedule?.is_confirmed" @click="confirmSchedule" class="px-3 py-2 md:px-5 md:py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
+                <span class="hidden md:inline">確認該月班表</span>
+                <span class="md:hidden">✓</span>
               </button>
-              <button @click="exportSchedule" class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all hover:shadow-lg font-medium">
-                匯出班表
+              <button v-else @click="unconfirmSchedule" class="px-3 py-2 md:px-5 md:py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
+                <span class="hidden md:inline">取消確認班表</span>
+                <span class="md:hidden">↩</span>
               </button>
-              <button @click="logout" class="px-5 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all hover:shadow-lg font-medium">
-                登出
+              <!-- TODO: 匯出班表功能尚未實作 -->
+              <!-- <button @click="exportSchedule" class="px-3 py-2 md:px-5 md:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
+                <span class="hidden md:inline">匯出班表</span>
+                <span class="md:hidden">📥</span>
+              </button> -->
+              <button @click="logout" class="px-3 py-2 md:px-5 md:py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
+                <span class="hidden md:inline">登出</span>
+                <span class="md:hidden">🚪</span>
               </button>
             </template>
           </div>
@@ -30,12 +70,12 @@
       </div>
     </nav>
 
-    <!-- Main Content - Vertically Centered -->
-    <div class="max-w-full mx-auto px-8 py-6 min-h-[calc(100vh-5rem)] flex items-center">
-      <div class="flex gap-8 w-full">
-        <!-- Employee List Sidebar - Enhanced Card Design -->
-        <div class="w-72 bg-white rounded-xl shadow-xl border-2 border-gray-200">
-          <div class="p-6">
+    <!-- Main Content - Responsive Layout -->
+    <div class="max-w-full mx-auto px-4 py-4 md:px-8 md:py-6 min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)]">
+      <div class="flex flex-col md:flex-row gap-4 md:gap-8 w-full">
+        <!-- Employee List Sidebar - Enhanced Card Design (Desktop Only) -->
+        <div class="hidden md:block md:w-56 lg:w-64 bg-white rounded-xl shadow-xl border-2 border-gray-200">
+          <div class="p-4 lg:p-6">
             <h2 class="text-xl font-bold mb-6 text-gray-800 border-b-2 border-gray-200 pb-3">選擇員工</h2>
             <div v-for="(dept, index) in departments" :key="dept.id" :class="index > 0 ? 'mt-6 pt-6 border-t-2 border-gray-100' : ''">
               <h3 class="font-bold text-gray-700 mb-3 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide">{{ dept.name }}</h3>
@@ -66,39 +106,92 @@
           </div>
         </div>
 
+        <!-- Mobile Employee Selector (Mobile Only) -->
+        <div class="block md:hidden bg-white rounded-xl shadow-xl border-2 border-gray-200 p-4">
+          <label class="block text-sm font-semibold mb-2 text-gray-700">選擇員工</label>
+          <select
+            :value="selectedEmployee?.id || ''"
+            @change="handleMobileEmployeeSelect"
+            class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+          >
+            <option value="">請選擇員工</option>
+            <optgroup v-for="dept in departments" :key="dept.id" :label="dept.name">
+              <option
+                v-for="employee in dept.employees"
+                :key="employee.id"
+                :value="employee.id"
+              >
+                {{ employee.name }}
+              </option>
+            </optgroup>
+          </select>
+        </div>
+
         <!-- Schedule Table - Enhanced -->
-        <div class="flex-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden">
-          <div class="p-6">
-            <!-- Year/Month Selector - Card Style -->
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 shadow-sm border border-blue-100">
-              <div class="flex items-center gap-4">
-                <label class="font-semibold text-gray-700">選擇年月：</label>
-                <select v-model="selectedYear" @change="loadSchedule" class="border-2 border-gray-300 rounded-lg px-4 py-2 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
-                  <option v-for="y in years" :key="y" :value="y">{{ y }}年</option>
-                </select>
-                <select v-model="selectedMonth" @change="loadSchedule" class="border-2 border-gray-300 rounded-lg px-4 py-2 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
-                  <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
-                </select>
-                <span v-if="schedule?.is_confirmed" class="ml-auto px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold border-2 border-green-200">
+        <div v-if="selectedEmployee" class="w-full md:flex-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden">
+          <div class="p-4 md:p-6">
+            <!-- Year/Month Selector and Leave Type Buttons -->
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 md:p-4 mb-4 md:mb-6 shadow-sm border border-blue-100">
+              <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+                <!-- Year/Month Selection -->
+                <div class="flex items-center gap-2 md:gap-3">
+                  <label class="font-semibold text-gray-700 text-sm md:text-base">選擇年月：</label>
+                  <select v-model="selectedYear" @change="loadSchedule" class="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm md:text-base font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+                    <option v-for="y in years" :key="y" :value="y">{{ y }}年</option>
+                  </select>
+                  <select v-model="selectedMonth" @change="loadSchedule" class="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm md:text-base font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+                    <option v-for="m in 12" :key="m" :value="m">{{ m }}月</option>
+                  </select>
+                </div>
+
+                <!-- Leave Type Buttons -->
+                <div class="flex items-center gap-2 md:ml-4 pt-3 md:pt-0 border-t-2 md:border-t-0 md:border-l-2 border-blue-200 md:pl-4">
+                  <label class="font-semibold text-gray-700 text-sm md:text-base">假別標記：</label>
+                  <button
+                    @click="toggleLeaveTypeMode('personal')"
+                    :class="[
+                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
+                      leaveTypeMode === 'personal'
+                        ? 'bg-yellow-500 text-white border-yellow-600 shadow-md'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50'
+                    ]"
+                  >
+                    事
+                  </button>
+                  <button
+                    @click="toggleLeaveTypeMode('sick')"
+                    :class="[
+                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
+                      leaveTypeMode === 'sick'
+                        ? 'bg-purple-500 text-white border-purple-600 shadow-md'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                    ]"
+                  >
+                    病
+                  </button>
+                </div>
+
+                <!-- Confirmed Badge -->
+                <span v-if="schedule?.is_confirmed" class="md:ml-auto px-3 py-2 bg-green-100 text-green-800 rounded-lg font-semibold border-2 border-green-200 text-sm md:text-base text-center">
                   ✓ 已確認
                 </span>
               </div>
             </div>
 
             <!-- Schedule Grid -->
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
               <table class="border-collapse border-2 border-gray-300 text-sm w-full">
                 <thead>
                   <!-- Row 1: Year.Month and Days -->
                   <tr>
-                    <th class="border-2 border-gray-300 px-4 py-3 bg-gray-100 sticky left-0 z-10 min-w-[150px] font-bold text-base">
+                    <th class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 bg-gray-100 sticky left-0 z-10 min-w-[100px] md:min-w-[150px] font-bold text-sm md:text-base">
                       {{ selectedYear }}.{{ selectedMonth }}
                     </th>
                     <th
                       v-for="day in daysInMonth"
                       :key="`day-${day}`"
                       :class="[
-                        'border border-gray-300 px-3 py-2 min-w-[40px] font-semibold',
+                        'border border-gray-300 px-2 md:px-3 py-2 min-w-[36px] md:min-w-[40px] font-semibold text-xs md:text-sm',
                         getDayOfWeek(day) === '日' ? 'bg-orange-200' : 'bg-gray-50'
                       ]"
                     >
@@ -107,12 +200,12 @@
                   </tr>
                   <!-- Row 2: Day of Week -->
                   <tr>
-                    <th class="border-2 border-gray-300 px-4 py-3 bg-gray-100 sticky left-0 z-10 font-bold"></th>
+                    <th class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 bg-gray-100 sticky left-0 z-10 font-bold"></th>
                     <th
                       v-for="day in daysInMonth"
                       :key="`dow-${day}`"
                       :class="[
-                        'border border-gray-300 px-3 py-2 font-semibold',
+                        'border border-gray-300 px-2 md:px-3 py-2 font-semibold text-xs md:text-sm',
                         getDayOfWeek(day) === '日' ? 'bg-orange-200' : 'bg-gray-50'
                       ]"
                     >
@@ -124,7 +217,7 @@
                   <!-- Department and Employee Rows -->
                   <template v-for="dept in departments" :key="dept.id">
                     <tr class="bg-blue-600">
-                      <td class="border-2 border-gray-300 px-4 py-3 font-bold bg-blue-600 text-white sticky left-0 z-10 text-base relative">
+                      <td class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 font-bold bg-blue-600 text-white sticky left-0 z-10 text-sm md:text-base relative">
                         <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-800"></div>
                         {{ dept.name }}
                       </td>
@@ -132,7 +225,7 @@
                         v-for="day in daysInMonth"
                         :key="`dept-${dept.id}-${day}`"
                         :class="[
-                          'border border-gray-300 bg-blue-600',
+                          'border border-gray-300 bg-blue-600 min-h-[36px] md:min-h-auto',
                           getDayOfWeek(day) === '日' ? 'bg-orange-400' : ''
                         ]"
                       ></td>
@@ -146,23 +239,29 @@
                       }"
                     >
                       <td
-                        class="border-2 border-gray-300 px-4 py-2.5 sticky left-0 z-10 bg-white font-medium min-w-[150px]"
+                        class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-2.5 sticky left-0 z-10 bg-white font-medium min-w-[100px] md:min-w-[150px]"
                       >
-                        <span class="flex items-center gap-2">
-                          <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: employee.color }"></span>
-                          {{ employee.name }}
+                        <span class="flex items-center gap-1 md:gap-2">
+                          <span class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" :style="{ backgroundColor: employee.color }"></span>
+                          <span class="text-xs md:text-sm">{{ employee.name }}</span>
                         </span>
                       </td>
                       <td
                         v-for="day in daysInMonth"
                         :key="`emp-${employee.id}-${day}`"
-                        @click="toggleDayOff(employee, day)"
+                        @mousedown="handleMouseDown(employee, day, $event)"
+                        @mouseenter="handleMouseEnter(employee, day)"
+                        @click.prevent="toggleDayOff(employee, day)"
                         :class="[
-                          'border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity',
-                          getCellClass(employee, day)
+                          'border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity select-none text-center font-bold text-base md:text-lg min-h-[44px] md:min-h-auto py-2.5 md:py-2',
+                          getCellClass(employee, day),
+                          isDragging && dragEmployee?.id === employee.id && draggedDays.has(day) ? 'ring-2 ring-blue-500' : ''
                         ]"
                         :style="getCellStyle(employee, day)"
-                      ></td>
+                      >
+                        <span v-if="getLeaveType(employee, day) === 'personal'" class="text-yellow-900">事</span>
+                        <span v-else-if="getLeaveType(employee, day) === 'sick'" class="text-purple-900">病</span>
+                      </td>
                     </tr>
                   </template>
                 </tbody>
@@ -174,8 +273,8 @@
     </div>
 
     <!-- Login Modal -->
-    <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-96">
+    <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4" style="z-index: 9999 !important;">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md" @click.stop>
         <h2 class="text-xl font-bold mb-4">管理員登入</h2>
         <form @submit.prevent="login">
           <div class="mb-4">
@@ -214,6 +313,130 @@
         </form>
       </div>
     </div>
+
+    <!-- Add Employee Modal -->
+    <div v-if="showAddEmployeeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div class="bg-white rounded-xl p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 pb-3">新增員工</h2>
+        <form @submit.prevent="addEmployee">
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">員工姓名</label>
+            <input
+              v-model="newEmployeeForm.name"
+              type="text"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              placeholder="請輸入員工姓名"
+              required
+            >
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">所屬部門</label>
+            <select
+              v-model="newEmployeeForm.department_id"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              required
+            >
+              <option value="">請選擇部門</option>
+              <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                {{ dept.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm font-semibold mb-3 text-gray-700">代表色</label>
+            <div v-if="availableColors.length === 0" class="text-red-600 font-medium">
+              ⚠️ 所有顏色已被使用，無法新增更多員工
+            </div>
+            <div v-else class="grid grid-cols-5 gap-3">
+              <button
+                v-for="color in availableColors"
+                :key="color.hex"
+                type="button"
+                @click="newEmployeeForm.color = color.hex"
+                :class="[
+                  'flex flex-col items-center p-3 rounded-lg border-2 transition-all',
+                  newEmployeeForm.color === color.hex
+                    ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-300'
+                    : 'border-gray-200 hover:border-gray-400 hover:shadow-md'
+                ]"
+              >
+                <div
+                  class="w-10 h-10 rounded-full mb-2 shadow-md"
+                  :style="{ backgroundColor: color.hex }"
+                ></div>
+                <span class="text-xs font-medium text-gray-700">{{ color.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3 mt-6 pt-4 border-t-2">
+            <button
+              type="button"
+              @click="closeAddEmployeeModal"
+              class="px-5 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-all"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              :disabled="!newEmployeeForm.color || availableColors.length === 0"
+              class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              新增員工
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add Department Modal -->
+    <div v-if="showAddDepartmentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div class="bg-white rounded-xl p-6 w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 pb-3">新增部門</h2>
+        <form @submit.prevent="addDepartment">
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">部門名稱</label>
+            <input
+              v-model="newDepartmentForm.name"
+              type="text"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              placeholder="請輸入部門名稱"
+              required
+            >
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">排序順序</label>
+            <input
+              v-model.number="newDepartmentForm.sort_order"
+              type="number"
+              min="0"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              placeholder="留空則自動排序到最後"
+            >
+            <p class="text-xs text-gray-500 mt-1">數字越小越靠前</p>
+          </div>
+
+          <div class="flex justify-end gap-3 mt-6 pt-4 border-t-2">
+            <button
+              type="button"
+              @click="closeAddDepartmentModal"
+              class="px-5 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-all"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all"
+            >
+              新增部門
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -234,6 +457,36 @@ const loginForm = ref({
   username: '',
   password: ''
 });
+
+// Management State
+const showManagementMenu = ref(false);
+const showAddEmployeeModal = ref(false);
+const showAddDepartmentModal = ref(false);
+const availableColors = ref([]);
+const newEmployeeForm = ref({
+  name: '',
+  department_id: '',
+  color: ''
+});
+const newDepartmentForm = ref({
+  name: '',
+  sort_order: null
+});
+
+// Drag State
+const isDragging = ref(false);
+const dragStartDay = ref(null);
+const dragEndDay = ref(null);
+const dragEmployee = ref(null);
+const draggedDays = ref(new Set());
+const dragAction = ref(null); // 'add' or 'remove'
+const justFinishedDrag = ref(false); // 標記是否剛完成拖曳操作
+
+// Leave Type State
+const leaveTypeMode = ref(null); // 'personal' or 'sick' or null
+
+// Mouse event tracking
+const mouseDownTime = ref(null);
 
 let clearEmployeeTimer = null;
 
@@ -280,10 +533,39 @@ const selectEmployee = (employee) => {
   }
 };
 
+// Handle mobile employee select dropdown
+const handleMobileEmployeeSelect = (event) => {
+  const employeeId = parseInt(event.target.value);
+  if (!employeeId) {
+    selectedEmployee.value = null;
+    if (clearEmployeeTimer) {
+      clearTimeout(clearEmployeeTimer);
+    }
+    return;
+  }
+
+  // Find the employee by ID
+  let foundEmployee = null;
+  for (const dept of departments.value) {
+    foundEmployee = dept.employees.find(emp => emp.id === employeeId);
+    if (foundEmployee) break;
+  }
+
+  if (foundEmployee) {
+    selectEmployee(foundEmployee);
+  }
+};
+
 const isEmployeeDayOff = (employee, day) => {
   if (!employee.schedule_records) return false;
   const record = employee.schedule_records.find(r => r.day === day);
   return record?.is_off || false;
+};
+
+const getLeaveType = (employee, day) => {
+  if (!employee.schedule_records) return null;
+  const record = employee.schedule_records.find(r => r.day === day);
+  return record?.leave_type || null;
 };
 
 const getCellClass = (employee, day) => {
@@ -307,7 +589,22 @@ const getCellStyle = (employee, day) => {
   return {};
 };
 
-const toggleDayOff = async (employee, day) => {
+const toggleLeaveTypeMode = (type) => {
+  // 點擊同一個按鈕則取消模式
+  if (leaveTypeMode.value === type) {
+    leaveTypeMode.value = null;
+  } else {
+    leaveTypeMode.value = type;
+  }
+};
+
+const toggleDayOff = async (employee, day, event) => {
+  // 如果剛完成拖曳操作，則忽略這次點擊（避免拖曳後觸發 click）
+  if (justFinishedDrag.value) {
+    justFinishedDrag.value = false;
+    return;
+  }
+
   if (!selectedEmployee.value) {
     alert('請先選擇員工');
     return;
@@ -323,6 +620,13 @@ const toggleDayOff = async (employee, day) => {
     return; // 不能點選店休日
   }
 
+  // 如果在假別模式，則標記假別
+  if (leaveTypeMode.value) {
+    await markLeaveType(employee, day, leaveTypeMode.value);
+    return;
+  }
+
+  // 一般模式：切換休假狀態
   try {
     const response = await axios.post('/api/schedules/records', {
       schedule_id: schedule.value.id,
@@ -338,6 +642,7 @@ const toggleDayOff = async (employee, day) => {
     const existingRecord = employee.schedule_records.find(r => r.day === day);
     if (existingRecord) {
       existingRecord.is_off = response.data.record.is_off;
+      existingRecord.leave_type = response.data.record.leave_type;
     } else {
       employee.schedule_records.push(response.data.record);
     }
@@ -348,6 +653,148 @@ const toggleDayOff = async (employee, day) => {
       alert('操作失敗');
     }
   }
+};
+
+const markLeaveType = async (employee, day, type) => {
+  try {
+    const response = await axios.post('/api/schedules/records', {
+      schedule_id: schedule.value.id,
+      employee_id: employee.id,
+      day: day,
+      leave_type: type
+    });
+
+    // Update local state
+    if (!employee.schedule_records) {
+      employee.schedule_records = [];
+    }
+
+    const existingRecord = employee.schedule_records.find(r => r.day === day);
+    if (existingRecord) {
+      existingRecord.is_off = response.data.record.is_off;
+      existingRecord.leave_type = response.data.record.leave_type;
+    } else {
+      employee.schedule_records.push(response.data.record);
+    }
+  } catch (error) {
+    if (error.response?.status === 403) {
+      alert(error.response.data.message);
+    } else {
+      alert('標記假別失敗');
+    }
+  }
+};
+
+// Drag handlers
+const handleMouseDown = (employee, day, event) => {
+  // 記錄 mousedown 時間
+  mouseDownTime.value = Date.now();
+
+  // 假別模式下不啟用拖曳功能
+  if (leaveTypeMode.value) {
+    return;
+  }
+
+  if (!selectedEmployee.value || selectedEmployee.value.id !== employee.id) {
+    return;
+  }
+
+  const dayOfWeek = getDayOfWeek(day);
+  if (dayOfWeek === '日') {
+    return; // 不能拖曳店休日
+  }
+
+  event.preventDefault();
+
+  isDragging.value = true;
+  dragStartDay.value = day;
+  dragEndDay.value = day;
+  dragEmployee.value = employee;
+  draggedDays.value = new Set([day]);
+
+  // 決定是新增還是移除休假（根據當前狀態的相反）
+  const isCurrentlyOff = isEmployeeDayOff(employee, day);
+  dragAction.value = isCurrentlyOff ? 'remove' : 'add';
+};
+
+const handleMouseEnter = (employee, day) => {
+  if (!isDragging.value || dragEmployee.value?.id !== employee.id) {
+    return;
+  }
+
+  const dayOfWeek = getDayOfWeek(day);
+  if (dayOfWeek === '日') {
+    return; // 跳過店休日
+  }
+
+  dragEndDay.value = day;
+
+  // 計算拖曳範圍內的所有日期
+  const startDay = Math.min(dragStartDay.value, dragEndDay.value);
+  const endDay = Math.max(dragStartDay.value, dragEndDay.value);
+
+  draggedDays.value.clear();
+  for (let d = startDay; d <= endDay; d++) {
+    const dow = getDayOfWeek(d);
+    if (dow !== '日') { // 排除店休日
+      draggedDays.value.add(d);
+    }
+  }
+};
+
+const handleMouseUp = async () => {
+  if (!isDragging.value) {
+    return;
+  }
+
+  try {
+    // 批量更新所有拖曳的日期
+    const promises = Array.from(draggedDays.value).map(async (day) => {
+      const response = await axios.post('/api/schedules/records', {
+        schedule_id: schedule.value.id,
+        employee_id: dragEmployee.value.id,
+        day: day,
+        force_action: dragAction.value // 強制設定為新增或移除
+      });
+
+      // Update local state
+      if (!dragEmployee.value.schedule_records) {
+        dragEmployee.value.schedule_records = [];
+      }
+
+      const existingRecord = dragEmployee.value.schedule_records.find(r => r.day === day);
+      if (existingRecord) {
+        existingRecord.is_off = response.data.record.is_off;
+      } else {
+        dragEmployee.value.schedule_records.push(response.data.record);
+      }
+
+      return response;
+    });
+
+    await Promise.all(promises);
+  } catch (error) {
+    if (error.response?.status === 403) {
+      alert(error.response.data.message);
+    } else {
+      alert('批量操作失敗');
+    }
+  } finally {
+    // 重置拖曳狀態
+    isDragging.value = false;
+    dragStartDay.value = null;
+    dragEndDay.value = null;
+    dragEmployee.value = null;
+    draggedDays.value.clear();
+    dragAction.value = null;
+
+    // 設定旗標以阻擋拖曳完成後的click事件
+    justFinishedDrag.value = true;
+  }
+};
+
+const handleLoginClick = () => {
+  showLoginModal.value = true;
 };
 
 const login = async () => {
@@ -370,7 +817,7 @@ const logout = async () => {
     isAdmin.value = false;
     adminName.value = '';
   } catch (error) {
-    console.error('Logout error:', error);
+    // 登出失敗時靜默處理
   }
 };
 
@@ -390,8 +837,36 @@ const confirmSchedule = async () => {
   }
 };
 
-const exportSchedule = () => {
-  window.open(`/api/schedules/${selectedYear.value}/${selectedMonth.value}/export`, '_blank');
+const unconfirmSchedule = async () => {
+  if (!confirm('確定要取消確認本月班表嗎？取消後所有員工將可以重新編輯。')) {
+    return;
+  }
+
+  try {
+    const response = await axios.post(`/api/schedules/${schedule.value.id}/unconfirm`);
+    if (response.data.success) {
+      alert('班表確認已取消');
+      schedule.value.is_confirmed = false;
+    }
+  } catch (error) {
+    alert(error.response?.data?.message || '取消確認失敗');
+  }
+};
+
+const exportSchedule = async () => {
+  // 檢查管理員權限
+  if (!isAdmin.value) {
+    alert('需要管理員權限才能匯出班表');
+    return;
+  }
+
+  // 檢查班表是否已確認
+  if (!schedule.value?.is_confirmed) {
+    alert('只能匯出已確認的班表');
+    return;
+  }
+
+  alert('匯出功能尚未實作');
 };
 
 const loadEmployees = async () => {
@@ -399,7 +874,7 @@ const loadEmployees = async () => {
     const response = await axios.get('/api/employees');
     departments.value = response.data.departments;
   } catch (error) {
-    console.error('Load employees error:', error);
+    // 載入員工失敗時靜默處理
   }
 };
 
@@ -425,7 +900,7 @@ const loadSchedule = async () => {
       });
     });
   } catch (error) {
-    console.error('Load schedule error:', error);
+    // 載入班表失敗時靜默處理
   }
 };
 
@@ -437,7 +912,115 @@ const checkAuth = async () => {
       adminName.value = response.data.admin.name;
     }
   } catch (error) {
-    console.error('Check auth error:', error);
+    // 檢查認證失敗時靜默處理
+  }
+};
+
+// Management Methods
+const openAddEmployeeModal = async () => {
+  showManagementMenu.value = false;
+  try {
+    // 載入可用的員工代表色
+    const response = await axios.get('/api/employees/available-colors');
+    availableColors.value = response.data.colors;
+    
+    // 重置表單
+    newEmployeeForm.value = {
+      name: '',
+      department_id: '',
+      color: ''
+    };
+    
+    showAddEmployeeModal.value = true;
+  } catch (error) {
+    alert('載入可用顏色失敗');
+  }
+};
+
+const closeAddEmployeeModal = () => {
+  showAddEmployeeModal.value = false;
+  newEmployeeForm.value = {
+    name: '',
+    department_id: '',
+    color: ''
+  };
+  availableColors.value = [];
+};
+
+const addEmployee = async () => {
+  try {
+    const response = await axios.post('/api/employees', newEmployeeForm.value);
+    
+    if (response.data.success) {
+      alert('員工新增成功！');
+      closeAddEmployeeModal();
+      
+      // 重新載入員工列表
+      await loadEmployees();
+      await loadSchedule();
+    }
+  } catch (error) {
+    if (error.response?.data?.message) {
+      alert(error.response.data.message);
+    } else if (error.response?.data?.errors) {
+      const errors = Object.values(error.response.data.errors).flat();
+      alert('驗證錯誤：\n' + errors.join('\n'));
+    } else {
+      alert('新增員工失敗');
+    }
+  }
+};
+
+const openAddDepartmentModal = () => {
+  showManagementMenu.value = false;
+  newDepartmentForm.value = {
+    name: '',
+    sort_order: null
+  };
+  showAddDepartmentModal.value = true;
+};
+
+const closeAddDepartmentModal = () => {
+  showAddDepartmentModal.value = false;
+  newDepartmentForm.value = {
+    name: '',
+    sort_order: null
+  };
+};
+
+const addDepartment = async () => {
+  try {
+    const payload = { name: newDepartmentForm.value.name };
+    if (newDepartmentForm.value.sort_order !== null && newDepartmentForm.value.sort_order !== '') {
+      payload.sort_order = newDepartmentForm.value.sort_order;
+    }
+    
+    const response = await axios.post('/api/departments', payload);
+    
+    if (response.data.success) {
+      alert('部門新增成功！');
+      closeAddDepartmentModal();
+      
+      // 重新載入員工列表（包含部門資訊）
+      await loadEmployees();
+      await loadSchedule();
+    }
+  } catch (error) {
+    if (error.response?.data?.message) {
+      alert(error.response.data.message);
+    } else if (error.response?.data?.errors) {
+      const errors = Object.values(error.response.data.errors).flat();
+      alert('驗證錯誤：\n' + errors.join('\n'));
+    } else {
+      alert('新增部門失敗');
+    }
+  }
+};
+
+// Close management menu when clicking outside
+const handleClickOutside = (event) => {
+  if (showManagementMenu.value && !event.target.closest('.management-dropdown')) {
+    showManagementMenu.value = false;
   }
 };
 
@@ -446,12 +1029,20 @@ onMounted(async () => {
   await checkAuth();
   await loadEmployees();
   await loadSchedule();
+
+  // Add click listener to close management menu when clicking outside
+  document.addEventListener('click', handleClickOutside);
+
+  // Add global mouseup listener for drag operations
+  document.addEventListener('mouseup', handleMouseUp);
 });
 
 onUnmounted(() => {
   if (clearEmployeeTimer) {
     clearTimeout(clearEmployeeTimer);
   }
+  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('mouseup', handleMouseUp);
 });
 </script>
 
@@ -462,5 +1053,14 @@ table {
 
 .sticky {
   position: sticky;
+}
+
+/* Fix for modal positioning */
+.fixed.inset-0 {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
 }
 </style>
