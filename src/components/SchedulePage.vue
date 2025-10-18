@@ -74,33 +74,60 @@
     <div class="max-w-full mx-auto px-4 py-4 md:px-8 md:py-6 min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-5rem)]">
       <div class="flex flex-col md:flex-row gap-4 md:gap-8 w-full">
         <!-- Employee List Sidebar - Enhanced Card Design (Desktop Only) -->
-        <div class="hidden md:block md:w-56 lg:w-64 bg-white rounded-xl shadow-xl border-2 border-gray-200">
-          <div class="p-4 lg:p-6">
-            <h2 class="text-xl font-bold mb-6 text-gray-800 border-b-2 border-gray-200 pb-3">選擇員工</h2>
+        <div class="hidden md:flex md:flex-col md:w-56 lg:w-64 bg-white rounded-xl shadow-xl border-2 border-gray-200 h-[calc(100vh-8rem)]">
+          <!-- Header Section (Fixed) -->
+          <div class="p-4 lg:p-6 border-b-2 border-gray-200 flex-shrink-0">
+            <h2 class="text-xl font-bold text-gray-800">選擇員工</h2>
+          </div>
+
+          <!-- Scrollable Content Section -->
+          <div class="flex-1 overflow-y-auto p-4 lg:p-6">
             <div v-for="(dept, index) in departments" :key="dept.id" :class="index > 0 ? 'mt-6 pt-6 border-t-2 border-gray-100' : ''">
-              <h3 class="font-bold text-gray-700 mb-3 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide">{{ dept.name }}</h3>
-              <div class="space-y-2">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
                 <button
+                  v-if="isAdmin"
+                  @click="deleteDepartment(dept)"
+                  class="ml-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
+                  title="刪除部門"
+                >
+                  🗑️
+                </button>
+              </div>
+              <div class="space-y-2">
+                <div
                   v-for="employee in dept.employees"
                   :key="employee.id"
-                  @click="selectEmployee(employee)"
-                  :class="[
-                    'w-full px-4 py-3 rounded-lg text-left transition-all font-medium',
-                    selectedEmployee?.id === employee.id
-                      ? 'ring-2 ring-offset-2 shadow-md'
-                      : 'hover:bg-gray-50 hover:shadow-sm'
-                  ]"
-                  :style="{
-                    backgroundColor: selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
-                    borderLeft: `5px solid ${employee.color}`,
-                    ringColor: employee.color
-                  }"
+                  class="flex items-center gap-2"
                 >
-                  <span class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: employee.color }"></span>
-                    {{ employee.name }}
-                  </span>
-                </button>
+                  <button
+                    @click="selectEmployee(employee)"
+                    :class="[
+                      'flex-1 px-4 py-3 rounded-lg text-left transition-all font-medium',
+                      selectedEmployee?.id === employee.id
+                        ? 'ring-2 ring-offset-2 shadow-md'
+                        : 'hover:bg-gray-50 hover:shadow-sm'
+                    ]"
+                    :style="{
+                      backgroundColor: selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
+                      borderLeft: `5px solid ${employee.color}`,
+                      ringColor: employee.color
+                    }"
+                  >
+                    <span class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: employee.color }"></span>
+                      {{ employee.name }}
+                    </span>
+                  </button>
+                  <button
+                    v-if="isAdmin"
+                    @click="deleteEmployee(employee)"
+                    class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
+                    title="刪除員工"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -149,22 +176,28 @@
                   <label class="font-semibold text-gray-700 text-sm md:text-base">假別標記：</label>
                   <button
                     @click="toggleLeaveTypeMode('personal')"
+                    :disabled="schedule?.is_confirmed && !isAdmin"
                     :class="[
                       'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
-                      leaveTypeMode === 'personal'
-                        ? 'bg-yellow-500 text-white border-yellow-600 shadow-md'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50'
+                      schedule?.is_confirmed && !isAdmin
+                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+                        : leaveTypeMode === 'personal'
+                          ? 'bg-yellow-500 text-white border-yellow-600 shadow-md'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50'
                     ]"
                   >
                     事
                   </button>
                   <button
                     @click="toggleLeaveTypeMode('sick')"
+                    :disabled="schedule?.is_confirmed && !isAdmin"
                     :class="[
                       'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
-                      leaveTypeMode === 'sick'
-                        ? 'bg-purple-500 text-white border-purple-600 shadow-md'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                      schedule?.is_confirmed && !isAdmin
+                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+                        : leaveTypeMode === 'sick'
+                          ? 'bg-purple-500 text-white border-purple-600 shadow-md'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
                     ]"
                   >
                     病
@@ -253,7 +286,10 @@
                         @mouseenter="handleMouseEnter(employee, day)"
                         @click.prevent="toggleDayOff(employee, day)"
                         :class="[
-                          'border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity select-none text-center font-bold text-base md:text-lg min-h-[44px] md:min-h-auto py-2.5 md:py-2',
+                          'border border-gray-300 transition-opacity select-none text-center font-bold text-base md:text-lg min-h-[44px] md:min-h-auto py-2.5 md:py-2',
+                          schedule?.is_confirmed && !isAdmin
+                            ? 'cursor-not-allowed'
+                            : 'cursor-pointer hover:opacity-80',
                           getCellClass(employee, day),
                           isDragging && dragEmployee?.id === employee.id && draggedDays.has(day) ? 'ring-2 ring-blue-500' : ''
                         ]"
@@ -590,6 +626,11 @@ const getCellStyle = (employee, day) => {
 };
 
 const toggleLeaveTypeMode = (type) => {
+  // 如果班表已確認且操作者是訪客，則禁用所有操作
+  if (schedule.value?.is_confirmed && !isAdmin.value) {
+    return;
+  }
+
   // 點擊同一個按鈕則取消模式
   if (leaveTypeMode.value === type) {
     leaveTypeMode.value = null;
@@ -599,6 +640,11 @@ const toggleLeaveTypeMode = (type) => {
 };
 
 const toggleDayOff = async (employee, day, event) => {
+  // 如果班表已確認且操作者是訪客，則禁用所有操作
+  if (schedule.value?.is_confirmed && !isAdmin.value) {
+    return;
+  }
+
   // 如果剛完成拖曳操作，則忽略這次點擊（避免拖曳後觸發 click）
   if (justFinishedDrag.value) {
     justFinishedDrag.value = false;
@@ -687,6 +733,11 @@ const markLeaveType = async (employee, day, type) => {
 
 // Drag handlers
 const handleMouseDown = (employee, day, event) => {
+  // 如果班表已確認且操作者是訪客，則禁用所有操作
+  if (schedule.value?.is_confirmed && !isAdmin.value) {
+    return;
+  }
+
   // 記錄 mousedown 時間
   mouseDownTime.value = Date.now();
 
@@ -1013,6 +1064,59 @@ const addDepartment = async () => {
       alert('驗證錯誤：\n' + errors.join('\n'));
     } else {
       alert('新增部門失敗');
+    }
+  }
+};
+
+const deleteEmployee = async (employee) => {
+  if (!confirm(`確定要刪除員工「${employee.name}」嗎？\n\n刪除後該員工將不再顯示於列表中，但歷史班表記錄仍會保留。`)) {
+    return;
+  }
+
+  try {
+    const response = await axios.delete(`/api/employees/${employee.id}`);
+
+    if (response.data.success) {
+      alert('員工已刪除！');
+
+      // 如果刪除的是當前選中的員工，清除選擇
+      if (selectedEmployee.value?.id === employee.id) {
+        selectedEmployee.value = null;
+      }
+
+      // 重新載入員工列表
+      await loadEmployees();
+      await loadSchedule();
+    }
+  } catch (error) {
+    if (error.response?.data?.message) {
+      alert(error.response.data.message);
+    } else {
+      alert('刪除員工失敗');
+    }
+  }
+};
+
+const deleteDepartment = async (department) => {
+  if (!confirm(`確定要刪除部門「${department.name}」嗎？\n\n注意：部門下如有員工則無法刪除。`)) {
+    return;
+  }
+
+  try {
+    const response = await axios.delete(`/api/departments/${department.id}`);
+
+    if (response.data.success) {
+      alert('部門已刪除！');
+
+      // 重新載入員工列表
+      await loadEmployees();
+      await loadSchedule();
+    }
+  } catch (error) {
+    if (error.response?.data?.message) {
+      alert(error.response.data.message);
+    } else {
+      alert('刪除部門失敗');
     }
   }
 };
