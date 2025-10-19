@@ -135,23 +135,58 @@
 
         <!-- Mobile Employee Selector (Mobile Only) -->
         <div class="block md:hidden bg-white rounded-xl shadow-xl border-2 border-gray-200 p-4">
-          <label class="block text-sm font-semibold mb-2 text-gray-700">選擇員工</label>
-          <select
-            :value="selectedEmployee?.id || ''"
-            @change="handleMobileEmployeeSelect"
-            class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-          >
-            <option value="">請選擇員工</option>
-            <optgroup v-for="dept in departments" :key="dept.id" :label="dept.name">
-              <option
-                v-for="employee in dept.employees"
-                :key="employee.id"
-                :value="employee.id"
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-semibold text-gray-700">選擇員工</label>
+            <button
+              v-if="isAdmin"
+              @click="showMobileDepartmentManager = !showMobileDepartmentManager"
+              class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-all font-medium"
+            >
+              {{ showMobileDepartmentManager ? '關閉' : '管理部門' }}
+            </button>
+          </div>
+
+          <!-- Department Manager (Mobile) -->
+          <div v-if="isAdmin && showMobileDepartmentManager" class="mb-3 p-3 bg-gray-50 rounded-lg border-2 border-gray-200">
+            <p class="text-xs text-gray-600 mb-2 font-semibold">點擊部門名稱可刪除</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="dept in departments"
+                :key="dept.id"
+                @click="deleteDepartment(dept)"
+                class="px-3 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-all"
               >
-                {{ employee.name }}
-              </option>
-            </optgroup>
-          </select>
+                {{ dept.name }} ({{ dept.employees.length }})
+              </button>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <select
+              :value="selectedEmployee?.id || ''"
+              @change="handleMobileEmployeeSelect"
+              class="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+            >
+              <option value="">請選擇員工</option>
+              <optgroup v-for="dept in departments" :key="dept.id" :label="dept.name">
+                <option
+                  v-for="employee in dept.employees"
+                  :key="employee.id"
+                  :value="employee.id"
+                >
+                  {{ employee.name }}
+                </option>
+              </optgroup>
+            </select>
+            <button
+              v-if="isAdmin && selectedEmployee"
+              @click="deleteEmployee(selectedEmployee)"
+              class="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium"
+              title="刪除員工"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
 
         <!-- Schedule Table - Enhanced -->
@@ -202,6 +237,20 @@
                   >
                     病
                   </button>
+                  <button
+                    @click="toggleLeaveTypeMode('hourly')"
+                    :disabled="schedule?.is_confirmed && !isAdmin"
+                    :class="[
+                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
+                      schedule?.is_confirmed && !isAdmin
+                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+                        : leaveTypeMode === 'hourly'
+                          ? 'bg-blue-500 text-white border-blue-600 shadow-md'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                    ]"
+                  >
+                    時
+                  </button>
                 </div>
 
                 <!-- Confirmed Badge -->
@@ -225,8 +274,9 @@
                       :key="`day-${day}`"
                       :class="[
                         'border border-gray-300 px-2 md:px-3 py-2 min-w-[36px] md:min-w-[40px] font-semibold text-xs md:text-sm',
-                        getDayOfWeek(day) === '日' ? 'bg-orange-200' : 'bg-gray-50'
+                        getDayOfWeek(day) === '日' ? '' : 'bg-gray-50'
                       ]"
+                      :style="getDayOfWeek(day) === '日' ? { backgroundColor: '#f7caab' } : {}"
                     >
                       {{ day }}
                     </th>
@@ -239,8 +289,9 @@
                       :key="`dow-${day}`"
                       :class="[
                         'border border-gray-300 px-2 md:px-3 py-2 font-semibold text-xs md:text-sm',
-                        getDayOfWeek(day) === '日' ? 'bg-orange-200' : 'bg-gray-50'
+                        getDayOfWeek(day) === '日' ? '' : 'bg-gray-50'
                       ]"
+                      :style="getDayOfWeek(day) === '日' ? { backgroundColor: '#f7caab' } : {}"
                     >
                       {{ getDayOfWeek(day) }}
                     </th>
@@ -249,18 +300,16 @@
                 <tbody>
                   <!-- Department and Employee Rows -->
                   <template v-for="dept in departments" :key="dept.id">
-                    <tr class="bg-blue-600">
-                      <td class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 font-bold bg-blue-600 text-white sticky left-0 z-10 text-sm md:text-base relative">
-                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-800"></div>
+                    <tr>
+                      <td class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 font-bold text-white sticky left-0 z-10 text-sm md:text-base relative" style="background-color: #f7caab;">
+                        <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color: #e5b89a;"></div>
                         {{ dept.name }}
                       </td>
                       <td
                         v-for="day in daysInMonth"
                         :key="`dept-${dept.id}-${day}`"
-                        :class="[
-                          'border border-gray-300 bg-blue-600 min-h-[36px] md:min-h-auto',
-                          getDayOfWeek(day) === '日' ? 'bg-orange-400' : ''
-                        ]"
+                        class="border border-gray-300 min-h-[36px] md:min-h-auto"
+                        style="background-color: #f7caab;"
                       ></td>
                     </tr>
                     <tr
@@ -297,6 +346,7 @@
                       >
                         <span v-if="getLeaveType(employee, day) === 'personal'" class="text-yellow-900">事</span>
                         <span v-else-if="getLeaveType(employee, day) === 'sick'" class="text-purple-900">病</span>
+                        <span v-else-if="getLeaveType(employee, day) === 'hourly'" class="text-blue-900">時</span>
                       </td>
                     </tr>
                   </template>
@@ -498,6 +548,7 @@ const loginForm = ref({
 const showManagementMenu = ref(false);
 const showAddEmployeeModal = ref(false);
 const showAddDepartmentModal = ref(false);
+const showMobileDepartmentManager = ref(false);
 const availableColors = ref([]);
 const newEmployeeForm = ref({
   name: '',
@@ -615,7 +666,7 @@ const getCellStyle = (employee, day) => {
   const isOff = isEmployeeDayOff(employee, day);
 
   if (dayOfWeek === '日') {
-    return { backgroundColor: '#FFA500' }; // 橘色店休
+    return { backgroundColor: '#f7caab' }; // 週日顏色
   }
 
   if (isOff) {
@@ -628,6 +679,7 @@ const getCellStyle = (employee, day) => {
 const toggleLeaveTypeMode = (type) => {
   // 如果班表已確認且操作者是訪客，則禁用所有操作
   if (schedule.value?.is_confirmed && !isAdmin.value) {
+    alert('班表已確認，無法更改。');
     return;
   }
 
@@ -642,6 +694,7 @@ const toggleLeaveTypeMode = (type) => {
 const toggleDayOff = async (employee, day, event) => {
   // 如果班表已確認且操作者是訪客，則禁用所有操作
   if (schedule.value?.is_confirmed && !isAdmin.value) {
+    alert('班表已確認，無法更改。');
     return;
   }
 
@@ -735,6 +788,7 @@ const markLeaveType = async (employee, day, type) => {
 const handleMouseDown = (employee, day, event) => {
   // 如果班表已確認且操作者是訪客，則禁用所有操作
   if (schedule.value?.is_confirmed && !isAdmin.value) {
+    alert('班表已確認，無法更改。');
     return;
   }
 
