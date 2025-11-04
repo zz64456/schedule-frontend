@@ -251,6 +251,20 @@
                   >
                     時
                   </button>
+                  <button
+                    @click="toggleLeaveTypeMode('annual')"
+                    :disabled="schedule?.is_confirmed && !isAdmin"
+                    :class="[
+                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
+                      schedule?.is_confirmed && !isAdmin
+                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+                        : leaveTypeMode === 'annual'
+                          ? 'bg-green-500 text-white border-green-600 shadow-md'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:bg-green-50'
+                    ]"
+                  >
+                    年
+                  </button>
                 </div>
 
                 <!-- Confirmed Badge -->
@@ -347,6 +361,7 @@
                         <span v-if="getLeaveType(employee, day) === 'personal'" class="text-yellow-900">事</span>
                         <span v-else-if="getLeaveType(employee, day) === 'sick'" class="text-purple-900">病</span>
                         <span v-else-if="getLeaveType(employee, day) === 'hourly'" class="text-blue-900">時</span>
+                        <span v-else-if="getLeaveType(employee, day) === 'annual'" class="text-green-900">年</span>
                       </td>
                     </tr>
                   </template>
