@@ -55,11 +55,10 @@
                 <span class="hidden md:inline">取消確認班表</span>
                 <span class="md:hidden">↩</span>
               </button>
-              <!-- TODO: 匯出班表功能尚未實作 -->
-              <!-- <button @click="exportSchedule" class="px-3 py-2 md:px-5 md:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
+              <button @click="exportScheduleToPDF" class="px-3 py-2 md:px-5 md:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
                 <span class="hidden md:inline">匯出班表</span>
                 <span class="md:hidden">📥</span>
-              </button> -->
+              </button>
               <button @click="logout" class="px-3 py-2 md:px-5 md:py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all hover:shadow-lg font-medium text-sm md:text-base">
                 <span class="hidden md:inline">登出</span>
                 <span class="md:hidden">🚪</span>
@@ -276,7 +275,7 @@
 
             <!-- Schedule Grid -->
             <div class="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-              <table class="border-collapse border-2 border-gray-300 text-sm w-full">
+              <table ref="scheduleTable" class="border-collapse border-2 border-gray-300 text-sm w-full">
                 <thead>
                   <!-- Row 1: Year.Month and Days -->
                   <tr>
@@ -544,11 +543,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // State
 const departments = ref([]);
 const schedule = ref(null);
 const selectedEmployee = ref(null);
+const scheduleTable = ref(null); // 用於抓取表格 DOM 元素
 const selectedYear = ref(114);
 const selectedMonth = ref(11);
 const isAdmin = ref(false);
@@ -973,20 +975,170 @@ const unconfirmSchedule = async () => {
   }
 };
 
-const exportSchedule = async () => {
-  // 檢查管理員權限
-  if (!isAdmin.value) {
-    alert('需要管理員權限才能匯出班表');
-    return;
-  }
+const exportScheduleToPDF = async () => {
+  try {
+    console.log('=== 開始匯出 PDF ===');
 
-  // 檢查班表是否已確認
-  if (!schedule.value?.is_confirmed) {
-    alert('只能匯出已確認的班表');
-    return;
-  }
+    // 檢查表格是否存在
+    if (!scheduleTable.value) {
+      console.error('錯誤：找不到表格元素');
+      alert('找不到表格元素，請重新整理頁面後再試');
+      return;
+    }
+    console.log('✓ 表格元素已找到');
 
-  alert('匯出功能尚未實作');
+    // 顯示載入中的提示
+    console.log('正在生成 PDF，請稍候...');
+
+    // 取得表格的父容器（有 overflow-x-auto 的 div）
+    const tableContainer = scheduleTable.value.parentElement;
+    if (!tableContainer) {
+      console.error('錯誤：找不到表格容器');
+      alert('找不到表格容器');
+      return;
+    }
+    console.log('✓ 表格容器已找到');
+
+    const originalOverflow = tableContainer.style.overflow;
+    const originalWidth = tableContainer.style.width;
+
+    // 暫時移除橫向滾動限制，讓完整表格可見
+    tableContainer.style.overflow = 'visible';
+    tableContainer.style.width = 'auto';
+    console.log('✓ 已調整表格樣式');
+
+    // 使用 html2canvas 將表格轉換為圖片
+    console.log('開始使用 html2canvas 截圖...');
+    const canvas = await html2canvas(scheduleTable.value, {
+      scale: 2, // 提高解析度
+      useCORS: true, // 允許跨域圖片
+      logging: false, // 關閉 console 日誌
+      backgroundColor: '#ffffff',
+      onclone: (clonedDoc) => {
+        // 在複製的文檔中移除所有 Tailwind CSS，只保留表格基本樣式
+        const style = clonedDoc.createElement('style');
+        style.textContent = `
+          /* 移除所有可能使用 oklch 的樣式 */
+          * {
+            color: #000000 !important;
+            background-color: transparent !important;
+            border-color: #d1d5db !important;
+          }
+
+          /* 保留表格結構 */
+          table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+            background-color: #ffffff !important;
+          }
+
+          th, td {
+            border: 2px solid #d1d5db !important;
+            padding: 8px !important;
+            text-align: center !important;
+          }
+
+          th {
+            background-color: #f3f4f6 !important;
+            font-weight: bold !important;
+          }
+
+          /* 保留重要的表格顏色：週日 */
+          th[style*="#f7caab"], td[style*="#f7caab"] {
+            background-color: #f7caab !important;
+          }
+
+          /* 保留重要的表格顏色：休假紅色 */
+          td[style*="#FF0000"], td[style*="rgb(255, 0, 0)"] {
+            background-color: #FF0000 !important;
+          }
+
+          /* 保留假別標記顏色 */
+          span {
+            font-weight: bold !important;
+          }
+        `;
+        clonedDoc.head.appendChild(style);
+
+        // 找到表格並手動設置重要樣式
+        const clonedTable = clonedDoc.querySelector('table');
+        if (clonedTable) {
+          // 遍歷所有單元格
+          const allCells = clonedTable.querySelectorAll('td, th');
+          allCells.forEach(cell => {
+            const originalStyle = window.getComputedStyle(cell);
+
+            // 檢查是否為休假日（紅色背景）
+            if (originalStyle.backgroundColor === 'rgb(255, 0, 0)') {
+              cell.style.backgroundColor = '#FF0000';
+              cell.style.setProperty('background-color', '#FF0000', 'important');
+            }
+            // 檢查是否為週日（橘色背景）
+            else if (originalStyle.backgroundColor.includes('247, 202, 171')) {
+              cell.style.backgroundColor = '#f7caab';
+              cell.style.setProperty('background-color', '#f7caab', 'important');
+            }
+            // 其他單元格使用白色或灰色
+            else if (cell.tagName === 'TH') {
+              cell.style.backgroundColor = '#f3f4f6';
+            } else {
+              cell.style.backgroundColor = '#ffffff';
+            }
+
+            // 設置文字顏色
+            cell.style.color = '#000000';
+            cell.style.borderColor = '#d1d5db';
+          });
+        }
+      }
+    });
+    console.log('✓ 截圖完成，canvas 尺寸：', canvas.width, 'x', canvas.height);
+
+    // 恢復原本的樣式
+    tableContainer.style.overflow = originalOverflow;
+    tableContainer.style.width = originalWidth;
+    console.log('✓ 已恢復表格樣式');
+
+    // 取得 canvas 尺寸
+    const imgWidth = canvas.width;
+    const imgHeight = canvas.height;
+
+    // 建立 PDF（使用橫向模式以容納寬表格）
+    console.log('開始建立 PDF...');
+    const pdf = new jsPDF({
+      orientation: 'landscape', // 橫向
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // 計算圖片在 PDF 中的尺寸（保持比例）
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+    const imgScaledWidth = imgWidth * ratio;
+    const imgScaledHeight = imgHeight * ratio;
+    console.log('✓ PDF 尺寸計算完成：', imgScaledWidth.toFixed(2), 'x', imgScaledHeight.toFixed(2), 'mm');
+
+    // 將 canvas 轉換為圖片並添加到 PDF
+    const imgData = canvas.toDataURL('image/png');
+    pdf.addImage(imgData, 'PNG', 0, 0, imgScaledWidth, imgScaledHeight);
+    console.log('✓ 圖片已加入 PDF');
+
+    // 產生檔名：班表_114年11月.pdf
+    const fileName = `班表_${selectedYear.value}年${selectedMonth.value}月.pdf`;
+
+    // 下載 PDF
+    pdf.save(fileName);
+
+    console.log('=== PDF 匯出成功！===');
+    alert('PDF 匯出成功！');
+  } catch (error) {
+    console.error('=== 匯出 PDF 時發生錯誤 ===');
+    console.error('錯誤類型：', error.name);
+    console.error('錯誤訊息：', error.message);
+    console.error('完整錯誤：', error);
+    alert(`匯出 PDF 失敗：${error.message}\n\n請查看瀏覽器 Console 以獲得更多資訊`);
+  }
 };
 
 const loadEmployees = async () => {
