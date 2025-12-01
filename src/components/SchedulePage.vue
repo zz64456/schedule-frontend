@@ -274,11 +274,11 @@
             </div>
 
             <!-- Schedule Grid -->
-            <div class="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+            <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-16rem)] -mx-4 md:mx-0 px-4 md:px-0">
               <table ref="scheduleTable" class="border-collapse border-2 border-gray-300 text-sm w-full">
                 <thead>
                   <!-- Row 1: Year.Month and Days -->
-                  <tr>
+                  <tr class="sticky-header-row-1">
                     <th class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 bg-gray-100 sticky left-0 z-10 min-w-[100px] md:min-w-[150px] font-bold text-sm md:text-base">
                       {{ selectedYear }}.{{ selectedMonth }}
                     </th>
@@ -295,7 +295,7 @@
                     </th>
                   </tr>
                   <!-- Row 2: Day of Week -->
-                  <tr>
+                  <tr class="sticky-header-row-2">
                     <th class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 bg-gray-100 sticky left-0 z-10 font-bold"></th>
                     <th
                       v-for="day in daysInMonth"
@@ -551,8 +551,22 @@ const departments = ref([]);
 const schedule = ref(null);
 const selectedEmployee = ref(null);
 const scheduleTable = ref(null); // 用於抓取表格 DOM 元素
-const selectedYear = ref(114);
-const selectedMonth = ref(11);
+
+// 根據台灣時間自動設定當前年月
+const getTaiwanDateTime = () => {
+  // 使用 Intl.DateTimeFormat 取得台灣時區的日期時間
+  const taiwanTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' });
+  const date = new Date(taiwanTime);
+
+  return {
+    year: date.getFullYear() - 1911, // 轉換為民國年
+    month: date.getMonth() + 1 // 月份從 0 開始，需要 +1
+  };
+};
+
+const { year: currentYear, month: currentMonth } = getTaiwanDateTime();
+const selectedYear = ref(currentYear);
+const selectedMonth = ref(currentMonth);
 const isAdmin = ref(false);
 const adminName = ref('');
 const showLoginModal = ref(false);
@@ -1378,6 +1392,33 @@ table {
 
 .sticky {
   position: sticky;
+}
+
+/* Sticky table headers */
+.sticky-header-row-1 {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.sticky-header-row-1 th {
+  background-color: #f3f4f6 !important;
+}
+
+.sticky-header-row-2 {
+  position: sticky;
+  top: 44px; /* 第一行的高度，根據實際調整 */
+  z-index: 20;
+}
+
+.sticky-header-row-2 th {
+  background-color: #f9fafb !important;
+}
+
+/* 確保左側固定列的 z-index 更高 */
+.sticky-header-row-1 th.sticky,
+.sticky-header-row-2 th.sticky {
+  z-index: 30;
 }
 
 /* Fix for modal positioning */
