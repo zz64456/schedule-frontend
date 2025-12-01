@@ -1077,31 +1077,51 @@ const exportScheduleToPDF = async () => {
         // 找到表格並手動設置重要樣式
         const clonedTable = clonedDoc.querySelector('table');
         if (clonedTable) {
-          // 遍歷所有單元格
-          const allCells = clonedTable.querySelectorAll('td, th');
-          allCells.forEach(cell => {
-            const originalStyle = window.getComputedStyle(cell);
+          // 找到原始表格以便比對
+          const originalTable = scheduleTable.value;
 
-            // 檢查是否為休假日（紅色背景）
-            if (originalStyle.backgroundColor === 'rgb(255, 0, 0)') {
-              cell.style.backgroundColor = '#FF0000';
-              cell.style.setProperty('background-color', '#FF0000', 'important');
-            }
-            // 檢查是否為週日（橘色背景）
-            else if (originalStyle.backgroundColor.includes('247, 202, 171')) {
-              cell.style.backgroundColor = '#f7caab';
-              cell.style.setProperty('background-color', '#f7caab', 'important');
-            }
-            // 其他單元格使用白色或灰色
-            else if (cell.tagName === 'TH') {
-              cell.style.backgroundColor = '#f3f4f6';
-            } else {
-              cell.style.backgroundColor = '#ffffff';
-            }
+          // 遍歷所有行
+          const allRows = clonedTable.querySelectorAll('tr');
+          allRows.forEach((row, rowIndex) => {
+            // 取得原始行
+            const originalRow = originalTable.querySelectorAll('tr')[rowIndex];
+            if (!originalRow) return;
 
-            // 設置文字顏色
-            cell.style.color = '#000000';
-            cell.style.borderColor = '#d1d5db';
+            // 檢查是否為部門列（部門列通常第一個 td 有特定樣式）
+            const firstCell = originalRow.querySelector('td');
+            const originalFirstCellStyle = firstCell ? window.getComputedStyle(firstCell) : null;
+            const isDepartmentRow = originalFirstCellStyle &&
+                                   originalFirstCellStyle.backgroundColor === 'rgb(247, 202, 171)';
+
+            // 遍歷該行的所有單元格
+            const cells = row.querySelectorAll('td, th');
+            cells.forEach((cell, cellIndex) => {
+              // 取得原始單元格的樣式
+              const originalCell = originalRow.querySelectorAll('td, th')[cellIndex];
+              const originalStyle = originalCell ? window.getComputedStyle(originalCell) : null;
+
+              // 優先級 1: 休假日（紅色背景）
+              if (originalStyle && originalStyle.backgroundColor === 'rgb(255, 0, 0)') {
+                cell.style.backgroundColor = '#FF0000';
+                cell.style.setProperty('background-color', '#FF0000', 'important');
+              }
+              // 優先級 2: 部門列或週日欄（橘色背景）
+              else if (isDepartmentRow ||
+                      (originalStyle && originalStyle.backgroundColor === 'rgb(247, 202, 171)')) {
+                cell.style.backgroundColor = '#f7caab';
+                cell.style.setProperty('background-color', '#f7caab', 'important');
+              }
+              // 優先級 3: 其他單元格
+              else if (cell.tagName === 'TH') {
+                cell.style.backgroundColor = '#f3f4f6';
+              } else {
+                cell.style.backgroundColor = '#ffffff';
+              }
+
+              // 設置文字顏色
+              cell.style.color = '#000000';
+              cell.style.borderColor = '#d1d5db';
+            });
           });
         }
       }
