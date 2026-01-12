@@ -287,11 +287,15 @@
                       :key="`day-${day}`"
                       :class="[
                         'border border-gray-300 px-2 md:px-3 py-2 min-w-[36px] md:min-w-[40px] font-semibold text-xs md:text-sm',
-                        getDayOfWeek(day) === '日' ? '' : 'bg-gray-50'
+                        getDayOfWeek(day) === '日' ? '' : 'bg-gray-50',
+                        isAdmin && getDayOfWeek(day) !== '日' ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''
                       ]"
-                      :style="getDayOfWeek(day) === '日' ? { backgroundColor: '#f7caab' } : {}"
+                      :style="getHeaderStyle(day)"
+                      @click="isAdmin && getDayOfWeek(day) !== '日' ? toggleHolidayColumn(day) : null"
+                      :title="isAdmin && getDayOfWeek(day) !== '日' ? '點擊標記為公休日' : ''"
                     >
                       {{ day }}
+                      <span v-if="holidays.has(day)" class="ml-1 text-xs">🏖️</span>
                     </th>
                   </tr>
                   <!-- Row 2: Day of Week -->
@@ -302,9 +306,12 @@
                       :key="`dow-${day}`"
                       :class="[
                         'border border-gray-300 px-2 md:px-3 py-2 font-semibold text-xs md:text-sm',
-                        getDayOfWeek(day) === '日' ? '' : 'bg-gray-50'
+                        getDayOfWeek(day) === '日' ? '' : 'bg-gray-50',
+                        isAdmin && getDayOfWeek(day) !== '日' ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''
                       ]"
-                      :style="getDayOfWeek(day) === '日' ? { backgroundColor: '#f7caab' } : {}"
+                      :style="getHeaderStyle(day)"
+                      @click="isAdmin && getDayOfWeek(day) !== '日' ? toggleHolidayColumn(day) : null"
+                      :title="isAdmin && getDayOfWeek(day) !== '日' ? '點擊標記為公休日' : ''"
                     >
                       {{ getDayOfWeek(day) }}
                     </th>
@@ -603,6 +610,9 @@ const justFinishedDrag = ref(false); // 標記是否剛完成拖曳操作
 // Leave Type State
 const leaveTypeMode = ref(null); // 'personal' or 'sick' or null
 
+// Holiday State
+const holidays = ref(new Set()); // 儲存標記為公休日的日期集合 (Set<number>)
+
 // Mouse event tracking
 const mouseDownTime = ref(null);
 
@@ -692,16 +702,35 @@ const getCellClass = (employee, day) => {
   return '';
 };
 
+const getHeaderStyle = (day) => {
+  const dayOfWeek = getDayOfWeek(day);
+
+  // 週日：原本的橘色
+  if (dayOfWeek === '日') {
+    return { backgroundColor: '#f7caab' };
+  }
+
+  // 自定義公休日：同樣的橘色
+  if (holidays.value.has(day)) {
+    return { backgroundColor: '#f7caab' };
+  }
+
+  // 一般日期
+  return {};
+};
+
 const getCellStyle = (employee, day) => {
   const dayOfWeek = getDayOfWeek(day);
   const isOff = isEmployeeDayOff(employee, day);
 
-  if (dayOfWeek === '日') {
-    return { backgroundColor: '#f7caab' }; // 週日顏色
+  // 週日或公休日：橘色背景
+  if (dayOfWeek === '日' || holidays.value.has(day)) {
+    return { backgroundColor: '#f7caab' };
   }
 
+  // 員工休假：紅色背景
   if (isOff) {
-    return { backgroundColor: '#FF0000' }; // 紅色休假
+    return { backgroundColor: '#FF0000' };
   }
 
   return {};
@@ -746,8 +775,8 @@ const toggleDayOff = async (employee, day, event) => {
   }
 
   const dayOfWeek = getDayOfWeek(day);
-  if (dayOfWeek === '日') {
-    return; // 不能點選店休日
+  if (dayOfWeek === '日' || holidays.value.has(day)) {
+    return; // 不能點選店休日或公休日
   }
 
   // 如果在假別模式，則標記假別
@@ -836,8 +865,8 @@ const handleMouseDown = (employee, day, event) => {
   }
 
   const dayOfWeek = getDayOfWeek(day);
-  if (dayOfWeek === '日') {
-    return; // 不能拖曳店休日
+  if (dayOfWeek === '日' || holidays.value.has(day)) {
+    return; // 不能拖曳店休日或公休日
   }
 
   event.preventDefault();
@@ -859,8 +888,8 @@ const handleMouseEnter = (employee, day) => {
   }
 
   const dayOfWeek = getDayOfWeek(day);
-  if (dayOfWeek === '日') {
-    return; // 跳過店休日
+  if (dayOfWeek === '日' || holidays.value.has(day)) {
+    return; // 跳過店休日或公休日
   }
 
   dragEndDay.value = day;
@@ -872,7 +901,7 @@ const handleMouseEnter = (employee, day) => {
   draggedDays.value.clear();
   for (let d = startDay; d <= endDay; d++) {
     const dow = getDayOfWeek(d);
-    if (dow !== '日') { // 排除店休日
+    if (dow !== '日' && !holidays.value.has(d)) { // 排除店休日和公休日
       draggedDays.value.add(d);
     }
   }
@@ -986,6 +1015,58 @@ const unconfirmSchedule = async () => {
     }
   } catch (error) {
     alert(error.response?.data?.message || '取消確認失敗');
+  }
+};
+
+const toggleHolidayColumn = async (day) => {
+  // 權限檢查
+  if (!isAdmin.value) {
+    alert('需要管理員權限才能標記公休日');
+    return;
+  }
+
+  // 檢查是否為週日
+  const dayOfWeek = getDayOfWeek(day);
+  if (dayOfWeek === '日') {
+    alert('週日已預設為公休日，無需額外標記');
+    return;
+  }
+
+  // 確認對話框
+  const isCurrentlyHoliday = holidays.value.has(day);
+  const action = isCurrentlyHoliday ? '取消' : '標記';
+  const dateStr = `${selectedYear.value}年${selectedMonth.value}月${day}日（${dayOfWeek}）`;
+
+  if (!confirm(`確定要${action}「${dateStr}」為公休日嗎？\n\n${action === '標記' ? '標記後整欄將顯示公休日背景色' : '取消後將恢復正常上班日背景色'}`)) {
+    return;
+  }
+
+  try {
+    const response = await axios.post('/api/schedules/holidays', {
+      schedule_id: schedule.value.id,
+      day: day,
+      name: null
+    });
+
+    if (response.data.success) {
+      // 更新本地狀態
+      if (response.data.action === 'added') {
+        holidays.value.add(day);
+      } else if (response.data.action === 'removed') {
+        holidays.value.delete(day);
+      }
+
+      alert(response.data.message);
+    }
+  } catch (error) {
+    if (error.response?.status === 403) {
+      alert(error.response.data.message || '權限不足');
+    } else if (error.response?.status === 400) {
+      alert(error.response.data.message);
+    } else {
+      alert('操作失敗，請稍後再試');
+    }
+    console.error('Toggle holiday error:', error);
   }
 };
 
@@ -1188,6 +1269,13 @@ const loadSchedule = async () => {
   try {
     const response = await axios.get(`/api/schedules/${selectedYear.value}/${selectedMonth.value}`);
     schedule.value = response.data.schedule;
+
+    // 載入公休日
+    if (response.data.holidays && Array.isArray(response.data.holidays)) {
+      holidays.value = new Set(response.data.holidays);
+    } else {
+      holidays.value = new Set();
+    }
 
     // Merge schedule records into employees
     const employeeMap = {};
