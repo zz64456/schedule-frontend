@@ -44,6 +44,12 @@
                   >
                     ➕ 新增部門
                   </button>
+                  <button
+                    @click="openAddLeaveTypeModal"
+                    class="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700 font-medium transition-colors"
+                  >
+                    ➕ 新增假別
+                  </button>
                 </div>
               </div>
 
@@ -206,63 +212,58 @@
                 </div>
 
                 <!-- Leave Type Buttons -->
-                <div class="flex items-center gap-2 md:ml-4 pt-3 md:pt-0 border-t-2 md:border-t-0 md:border-l-2 border-blue-200 md:pl-4">
+                <div class="flex items-center gap-2 md:ml-4 pt-3 md:pt-0 border-t-2 md:border-t-0 md:border-l-2 border-blue-200 md:pl-4 flex-wrap">
                   <label class="font-semibold text-gray-700 text-sm md:text-base">假別標記：</label>
+
+                  <!-- Built-in Leave Types -->
                   <button
                     @click="toggleLeaveTypeMode('personal')"
                     :disabled="schedule?.is_confirmed && !isAdmin"
-                    :class="[
-                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
-                      schedule?.is_confirmed && !isAdmin
-                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
-                        : leaveTypeMode === 'personal'
-                          ? 'bg-yellow-500 text-white border-yellow-600 shadow-md'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50'
-                    ]"
+                    :class="getLeaveTypeButtonClass('personal', 'yellow')"
                   >
                     事
                   </button>
                   <button
                     @click="toggleLeaveTypeMode('sick')"
                     :disabled="schedule?.is_confirmed && !isAdmin"
-                    :class="[
-                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
-                      schedule?.is_confirmed && !isAdmin
-                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
-                        : leaveTypeMode === 'sick'
-                          ? 'bg-purple-500 text-white border-purple-600 shadow-md'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
-                    ]"
+                    :class="getLeaveTypeButtonClass('sick', 'purple')"
                   >
                     病
                   </button>
                   <button
                     @click="toggleLeaveTypeMode('hourly')"
                     :disabled="schedule?.is_confirmed && !isAdmin"
-                    :class="[
-                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
-                      schedule?.is_confirmed && !isAdmin
-                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
-                        : leaveTypeMode === 'hourly'
-                          ? 'bg-blue-500 text-white border-blue-600 shadow-md'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-                    ]"
+                    :class="getLeaveTypeButtonClass('hourly', 'blue')"
                   >
                     時
                   </button>
                   <button
                     @click="toggleLeaveTypeMode('annual')"
                     :disabled="schedule?.is_confirmed && !isAdmin"
-                    :class="[
-                      'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base',
-                      schedule?.is_confirmed && !isAdmin
-                        ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
-                        : leaveTypeMode === 'annual'
-                          ? 'bg-green-500 text-white border-green-600 shadow-md'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:bg-green-50'
-                    ]"
+                    :class="getLeaveTypeButtonClass('annual', 'green')"
                   >
                     年
+                  </button>
+
+                  <!-- Custom Leave Types (Dynamic) -->
+                  <button
+                    v-for="customType in customLeaveTypes"
+                    :key="customType.id"
+                    @click="toggleLeaveTypeMode(customType.code)"
+                    :disabled="schedule?.is_confirmed && !isAdmin"
+                    :class="getLeaveTypeButtonClass(customType.code, 'orange')"
+                  >
+                    {{ customType.name }}
+                  </button>
+
+                  <!-- Delete Button (when custom leave type is selected) -->
+                  <button
+                    v-if="isAdmin && leaveTypeMode && leaveTypeMode.startsWith('custom_')"
+                    @click="deleteCustomLeaveType"
+                    class="px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base bg-red-50 text-red-700 border-red-300 hover:bg-red-100 hover:border-red-400"
+                    title="刪除此假別"
+                  >
+                    🗑️
                   </button>
                 </div>
 
@@ -368,6 +369,9 @@
                         <span v-else-if="getLeaveType(employee, day) === 'sick'" class="text-purple-900">病</span>
                         <span v-else-if="getLeaveType(employee, day) === 'hourly'" class="text-blue-900">時</span>
                         <span v-else-if="getLeaveType(employee, day) === 'annual'" class="text-green-900">年</span>
+                        <span v-else-if="getLeaveType(employee, day)?.startsWith('custom_')" class="text-orange-900">
+                          {{ getCustomLeaveTypeName(getLeaveType(employee, day)) }}
+                        </span>
                       </td>
                     </tr>
                   </template>
@@ -544,6 +548,67 @@
         </form>
       </div>
     </div>
+
+    <!-- Add Custom Leave Type Modal -->
+    <div v-if="showAddLeaveTypeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div class="bg-white rounded-xl p-6 w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 pb-3">新增自訂假別</h2>
+        <form @submit.prevent="addCustomLeaveType">
+          <!-- 假別名稱輸入 -->
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">假別名稱（單一中文字）</label>
+            <input
+              v-model="newLeaveTypeForm.name"
+              type="text"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all text-center text-2xl font-bold"
+              placeholder="例：婚"
+              maxlength="1"
+              pattern="[\u4e00-\u9fa5]"
+              required
+            >
+            <p class="text-xs text-gray-500 mt-2">僅限輸入一個中文字，將以橘色顯示</p>
+          </div>
+
+          <!-- 顏色說明 -->
+          <div class="mb-5 p-3 bg-orange-50 rounded-lg border border-orange-200">
+            <p class="text-sm text-gray-700">
+              <span class="font-semibold">顏色：</span>
+              <span class="inline-flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full border-2 border-gray-300" :style="{ backgroundColor: customLeaveTypeColor }"></span>
+                橘色 (Orange-500)
+              </span>
+            </p>
+            <p class="text-xs text-gray-500 mt-1">所有自定義假別統一使用橘色</p>
+          </div>
+
+          <!-- 數量限制說明 -->
+          <div class="mb-5 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p class="text-xs text-gray-600">
+              <span class="font-semibold">限制：</span>最多可新增 5 個自定義假別<br>
+              <span class="font-semibold">目前：</span>已新增 {{ customLeaveTypes.length }} / 5 個
+            </p>
+          </div>
+
+          <!-- 按鈕 -->
+          <div class="flex justify-end gap-3 mt-6 pt-4 border-t-2">
+            <button
+              type="button"
+              @click="closeAddLeaveTypeModal"
+              class="px-5 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-all"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              :disabled="!canAddMoreLeaveTypes"
+              class="px-5 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              新增假別
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -609,6 +674,13 @@ const justFinishedDrag = ref(false); // 標記是否剛完成拖曳操作
 
 // Leave Type State
 const leaveTypeMode = ref(null); // 'personal' or 'sick' or null
+
+// Custom Leave Types State
+const customLeaveTypes = ref([]); // { id, code, name, sort_order }[]
+const customLeaveTypeColor = ref('#F97316'); // Orange-500
+const canAddMoreLeaveTypes = ref(true);
+const showAddLeaveTypeModal = ref(false);
+const newLeaveTypeForm = ref({ name: '' });
 
 // Holiday State
 const holidays = ref(new Set()); // 儲存標記為公休日的日期集合 (Set<number>)
@@ -734,6 +806,29 @@ const getCellStyle = (employee, day) => {
   }
 
   return {};
+};
+
+/**
+ * 取得假別按鈕的 CSS class（簡化樣式管理）
+ */
+const getLeaveTypeButtonClass = (type, color) => {
+  const baseClass = 'px-3 py-2 rounded-lg font-medium transition-all border-2 text-sm md:text-base';
+  const disabled = schedule.value?.is_confirmed && !isAdmin.value;
+  const isActive = leaveTypeMode.value === type;
+
+  if (disabled) {
+    return `${baseClass} bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed`;
+  }
+
+  const colorMap = {
+    yellow: { active: 'bg-yellow-500 text-white border-yellow-600 shadow-md', inactive: 'bg-white text-gray-700 border-gray-300 hover:border-yellow-400 hover:bg-yellow-50' },
+    purple: { active: 'bg-purple-500 text-white border-purple-600 shadow-md', inactive: 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50' },
+    blue: { active: 'bg-blue-500 text-white border-blue-600 shadow-md', inactive: 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50' },
+    green: { active: 'bg-green-500 text-white border-green-600 shadow-md', inactive: 'bg-white text-gray-700 border-gray-300 hover:border-green-400 hover:bg-green-50' },
+    orange: { active: 'bg-orange-500 text-white border-orange-600 shadow-md', inactive: 'bg-white text-gray-700 border-gray-300 hover:border-orange-400 hover:bg-orange-50' },
+  };
+
+  return `${baseClass} ${isActive ? colorMap[color].active : colorMap[color].inactive}`;
 };
 
 const toggleLeaveTypeMode = (type) => {
@@ -1310,6 +1405,22 @@ const checkAuth = async () => {
   }
 };
 
+/**
+ * 載入自訂假別列表
+ */
+const loadCustomLeaveTypes = async () => {
+  try {
+    const response = await axios.get('/api/leave-types');
+    if (response.data.success) {
+      customLeaveTypes.value = response.data.leave_types;
+      customLeaveTypeColor.value = response.data.color;
+      canAddMoreLeaveTypes.value = response.data.can_add_more;
+    }
+  } catch (error) {
+    console.error('載入自定義假別失敗:', error);
+  }
+};
+
 // Management Methods
 const openAddEmployeeModal = async () => {
   showManagementMenu.value = false;
@@ -1464,6 +1575,104 @@ const deleteDepartment = async (department) => {
   }
 };
 
+/**
+ * 開啟新增假別 Modal
+ */
+const openAddLeaveTypeModal = () => {
+  showManagementMenu.value = false;
+
+  if (!canAddMoreLeaveTypes.value) {
+    alert('已達到自定義假別上限（5個），無法新增更多。');
+    return;
+  }
+
+  newLeaveTypeForm.value = { name: '' };
+  showAddLeaveTypeModal.value = true;
+};
+
+/**
+ * 關閉新增假別 Modal
+ */
+const closeAddLeaveTypeModal = () => {
+  showAddLeaveTypeModal.value = false;
+  newLeaveTypeForm.value = { name: '' };
+};
+
+/**
+ * 新增自訂假別（送 API）
+ */
+const addCustomLeaveType = async () => {
+  // 客戶端驗證：單一中文字
+  const chineseCharRegex = /^[\u4e00-\u9fa5]$/;
+  if (!chineseCharRegex.test(newLeaveTypeForm.value.name)) {
+    alert('假別名稱必須為單一中文字');
+    return;
+  }
+
+  try {
+    const response = await axios.post('/api/leave-types', {
+      name: newLeaveTypeForm.value.name
+    });
+
+    if (response.data.success) {
+      alert('自定義假別新增成功！');
+      closeAddLeaveTypeModal();
+      await loadCustomLeaveTypes();
+    }
+  } catch (error) {
+    if (error.response?.data?.message) {
+      alert(error.response.data.message);
+    } else if (error.response?.data?.errors) {
+      const errors = Object.values(error.response.data.errors).flat();
+      alert('驗證錯誤：\n' + errors.join('\n'));
+    } else {
+      alert('新增假別失敗');
+    }
+  }
+};
+
+/**
+ * 刪除自訂假別（軟刪除）
+ */
+const deleteCustomLeaveType = async () => {
+  const selectedType = customLeaveTypes.value.find(t => t.code === leaveTypeMode.value);
+
+  if (!selectedType) {
+    alert('找不到選中的假別');
+    return;
+  }
+
+  if (!confirm(`確定要刪除自定義假別「${selectedType.name}」嗎？\n\n刪除後該假別將不再顯示於列表中，但歷史班表記錄仍會保留。`)) {
+    return;
+  }
+
+  try {
+    const response = await axios.delete(`/api/leave-types/${selectedType.id}`);
+
+    if (response.data.success) {
+      alert('自定義假別已刪除！');
+      leaveTypeMode.value = null;
+      await loadCustomLeaveTypes();
+    }
+  } catch (error) {
+    if (error.response?.data?.message) {
+      alert(error.response.data.message);
+    } else {
+      alert('刪除假別失敗');
+    }
+  }
+};
+
+/**
+ * 根據 code 取得自訂假別的名稱
+ */
+const getCustomLeaveTypeName = (code) => {
+  if (!code || !code.startsWith('custom_')) return '';
+
+  const customType = customLeaveTypes.value.find(t => t.code === code);
+  return customType ? customType.name : '';
+};
+
 // Close management menu when clicking outside
 const handleClickOutside = (event) => {
   if (showManagementMenu.value && !event.target.closest('.management-dropdown')) {
@@ -1476,6 +1685,7 @@ onMounted(async () => {
   await checkAuth();
   await loadEmployees();
   await loadSchedule();
+  await loadCustomLeaveTypes();
 
   // Add click listener to close management menu when clicking outside
   document.addEventListener('click', handleClickOutside);
