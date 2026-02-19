@@ -82,16 +82,50 @@
         <div class="hidden md:flex md:flex-col md:w-56 lg:w-64 bg-white rounded-xl shadow-xl border-2 border-gray-200 h-[calc(100vh-8rem)]">
           <!-- Header Section (Fixed) -->
           <div class="p-4 lg:p-6 border-b-2 border-gray-200 flex-shrink-0">
-            <h2 class="text-xl font-bold text-gray-800">選擇員工</h2>
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-bold text-gray-800">選擇員工</h2>
+              <button
+                @click="toggleMultiSelectMode"
+                :class="[
+                  'px-3 py-1.5 text-xs rounded-lg font-medium transition-all border',
+                  isMultiSelectMode
+                    ? 'bg-blue-600 text-white border-blue-700'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                ]"
+              >
+                多選
+              </button>
+            </div>
+            <!-- 全選所有 -->
+            <label v-if="isMultiSelectMode" class="flex items-center gap-2 mt-3 px-2 py-1.5 bg-blue-50 rounded-lg cursor-pointer">
+              <input
+                type="checkbox"
+                :checked="isAllChecked"
+                @change="toggleCheckAll"
+                class="w-4 h-4 rounded text-blue-600"
+              />
+              <span class="text-sm font-medium text-blue-700">全選所有</span>
+              <span class="text-xs text-blue-500">({{ selectedEmployees.size }})</span>
+            </label>
           </div>
 
           <!-- Scrollable Content Section -->
           <div class="flex-1 overflow-y-auto p-4 lg:p-6">
             <div v-for="(dept, index) in departments" :key="dept.id" :class="index > 0 ? 'mt-6 pt-6 border-t-2 border-gray-100' : ''">
               <div class="flex items-center justify-between mb-3">
-                <h3 class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
+                <!-- 部門全選 checkbox -->
+                <label v-if="isMultiSelectMode" class="flex items-center gap-2 flex-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    :checked="isDepartmentAllChecked(dept)"
+                    @change="toggleDepartmentCheckAll(dept)"
+                    class="w-4 h-4 rounded text-blue-600"
+                  />
+                  <h3 class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
+                </label>
+                <h3 v-else class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
                 <button
-                  v-if="isAdmin"
+                  v-if="isAdmin && !isMultiSelectMode"
                   @click="deleteDepartment(dept)"
                   class="ml-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
                   title="刪除部門"
@@ -105,7 +139,37 @@
                   :key="employee.id"
                   class="flex items-center gap-2"
                 >
+                  <!-- 多選模式：checkbox -->
+                  <label
+                    v-if="isMultiSelectMode"
+                    class="flex items-center gap-0 flex-1 cursor-pointer"
+                    :class="{ 'opacity-50 cursor-not-allowed': employee.is_active === false }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="selectedEmployees.has(employee.id)"
+                      :disabled="employee.is_active === false"
+                      @change="toggleEmployeeCheck(employee.id)"
+                      class="w-4 h-4 rounded text-blue-600 mr-2 flex-shrink-0"
+                    />
+                    <span
+                      :class="[
+                        'flex-1 px-4 py-3 rounded-lg text-left transition-all font-medium',
+                        selectedEmployees.has(employee.id)
+                          ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-50'
+                          : 'hover:bg-gray-50 hover:shadow-sm'
+                      ]"
+                      :style="{ borderLeft: `5px solid ${employee.color}` }"
+                    >
+                      <span class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: employee.color }"></span>
+                        {{ employee.name }}
+                      </span>
+                    </span>
+                  </label>
+                  <!-- 單選模式：原有按鈕 -->
                   <button
+                    v-else
                     @click="selectEmployee(employee)"
                     :class="[
                       'flex-1 px-4 py-3 rounded-lg text-left transition-all font-medium',
@@ -125,7 +189,7 @@
                     </span>
                   </button>
                   <button
-                    v-if="isAdmin"
+                    v-if="isAdmin && !isMultiSelectMode"
                     @click="deleteEmployee(employee)"
                     class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
                     title="刪除員工"
@@ -195,7 +259,7 @@
         </div>
 
         <!-- Schedule Table - Enhanced -->
-        <div v-if="selectedEmployee" class="w-full md:flex-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden">
+        <div v-if="selectedEmployee || isMultiSelectMode" class="w-full md:flex-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden">
           <div class="p-4 md:p-6">
             <!-- Year/Month Selector and Leave Type Buttons -->
             <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 md:p-4 mb-4 md:mb-6 shadow-sm border border-blue-100">
@@ -337,12 +401,21 @@
                       v-for="employee in dept.employees"
                       :key="employee.id"
                       :style="{
-                        backgroundColor: selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
-                        borderLeft: selectedEmployee?.id === employee.id ? `4px solid ${employee.color}` : '2px solid #d1d5db'
+                        backgroundColor: isMultiSelectMode && selectedEmployees.has(employee.id)
+                          ? '#EFF6FF'
+                          : selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
+                        borderLeft: isMultiSelectMode && selectedEmployees.has(employee.id)
+                          ? '4px solid #3B82F6'
+                          : selectedEmployee?.id === employee.id ? `4px solid ${employee.color}` : '2px solid #d1d5db'
                       }"
                     >
                       <td
-                        class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-2.5 sticky left-0 z-10 bg-white font-medium min-w-[100px] md:min-w-[150px]"
+                        class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-2.5 sticky left-0 z-10 font-medium min-w-[100px] md:min-w-[150px]"
+                        :style="{
+                          backgroundColor: isMultiSelectMode && selectedEmployees.has(employee.id)
+                            ? '#EFF6FF'
+                            : selectedEmployee?.id === employee.id ? employee.color + '20' : 'white'
+                        }"
                       >
                         <span class="flex items-center gap-1 md:gap-2">
                           <span
@@ -374,7 +447,7 @@
                               ? 'cursor-not-allowed'
                               : 'cursor-pointer hover:opacity-80',
                           getCellClass(employee, day),
-                          isDragging && dragEmployee?.id === employee.id && draggedDays.has(day) ? 'ring-2 ring-blue-500' : ''
+                          isDragging && draggedDays.has(day) && (isMultiSelectMode ? selectedEmployees.has(employee.id) : dragEmployee?.id === employee.id) ? `ring-2 ${dragRingClass}` : ''
                         ]"
                         :style="getCellStyle(employee, day)"
                       >
@@ -688,6 +761,23 @@ const justFinishedDrag = ref(false); // 標記是否剛完成拖曳操作
 // Leave Type State
 const leaveTypeMode = ref(null); // 'personal' or 'sick' or null
 
+// 拖曳預覽環色彩（根據假別模式）
+const dragRingClass = computed(() => {
+  if (!leaveTypeMode.value) return 'ring-blue-500';
+  const colorMap = {
+    personal: 'ring-yellow-500',
+    sick: 'ring-purple-500',
+    hourly: 'ring-blue-500',
+    annual: 'ring-green-500',
+  };
+  return colorMap[leaveTypeMode.value] || 'ring-orange-500'; // custom types → orange
+});
+
+// Multi-Select Employee State
+const isMultiSelectMode = ref(false);
+const selectedEmployees = ref(new Set());
+let multiSelectTimer = null;
+
 // Custom Leave Types State
 const customLeaveTypes = ref([]); // { id, code, name, sort_order }[]
 const customLeaveTypeColor = ref('#F97316'); // Orange-500
@@ -744,6 +834,78 @@ const selectEmployee = (employee) => {
       clearTimeout(clearEmployeeTimer);
     }
   }
+};
+
+// Multi-select mode functions
+const resetMultiSelectTimer = () => {
+  if (multiSelectTimer) clearTimeout(multiSelectTimer);
+  multiSelectTimer = setTimeout(() => {
+    isMultiSelectMode.value = false;
+    selectedEmployees.value.clear();
+  }, 3 * 60 * 1000);
+};
+
+const toggleMultiSelectMode = () => {
+  isMultiSelectMode.value = !isMultiSelectMode.value;
+  if (isMultiSelectMode.value) {
+    // 進入多選：清除單選
+    selectedEmployee.value = null;
+    if (clearEmployeeTimer) clearTimeout(clearEmployeeTimer);
+    resetMultiSelectTimer();
+  } else {
+    // 退出多選：清除勾選
+    selectedEmployees.value.clear();
+    if (multiSelectTimer) clearTimeout(multiSelectTimer);
+  }
+};
+
+const toggleEmployeeCheck = (employeeId) => {
+  if (selectedEmployees.value.has(employeeId)) {
+    selectedEmployees.value.delete(employeeId);
+  } else {
+    selectedEmployees.value.add(employeeId);
+  }
+  resetMultiSelectTimer();
+};
+
+const toggleDepartmentCheckAll = (dept) => {
+  const activeEmployees = dept.employees.filter(e => e.is_active !== false);
+  const allChecked = activeEmployees.every(e => selectedEmployees.value.has(e.id));
+  if (allChecked) {
+    activeEmployees.forEach(e => selectedEmployees.value.delete(e.id));
+  } else {
+    activeEmployees.forEach(e => selectedEmployees.value.add(e.id));
+  }
+  resetMultiSelectTimer();
+};
+
+const toggleCheckAll = () => {
+  const allActiveEmployees = departments.value.flatMap(d => d.employees.filter(e => e.is_active !== false));
+  const allChecked = allActiveEmployees.every(e => selectedEmployees.value.has(e.id));
+  if (allChecked) {
+    selectedEmployees.value.clear();
+  } else {
+    allActiveEmployees.forEach(e => selectedEmployees.value.add(e.id));
+  }
+  resetMultiSelectTimer();
+};
+
+const isDepartmentAllChecked = (dept) => {
+  const activeEmployees = dept.employees.filter(e => e.is_active !== false);
+  return activeEmployees.length > 0 && activeEmployees.every(e => selectedEmployees.value.has(e.id));
+};
+
+const isAllChecked = computed(() => {
+  const allActiveEmployees = departments.value.flatMap(d => d.employees.filter(e => e.is_active !== false));
+  return allActiveEmployees.length > 0 && allActiveEmployees.every(e => selectedEmployees.value.has(e.id));
+});
+
+// Helper: check if employee is operable (selected in either mode)
+const isEmployeeOperable = (employee) => {
+  if (isMultiSelectMode.value) {
+    return selectedEmployees.value.has(employee.id);
+  }
+  return selectedEmployee.value?.id === employee.id;
 };
 
 // Handle mobile employee select dropdown
@@ -865,6 +1027,73 @@ const toggleLeaveTypeMode = (type) => {
   }
 };
 
+// Helper: 根據 ID 找到員工物件
+const findEmployeeById = (id) => {
+  for (const dept of departments.value) {
+    const emp = dept.employees.find(e => e.id === id);
+    if (emp) return emp;
+  }
+  return null;
+};
+
+// Helper: 取得當前操作的目標員工列表
+const getTargetEmployees = (triggerEmployee) => {
+  if (isMultiSelectMode.value) {
+    return Array.from(selectedEmployees.value).map(id => findEmployeeById(id)).filter(Boolean);
+  }
+  return [triggerEmployee];
+};
+
+// Helper: 對單一員工的單一天送出 API 並更新 local state
+const updateEmployeeDay = async (emp, day, extraPayload = {}) => {
+  const response = await axios.post('/api/schedules/records', {
+    schedule_id: schedule.value.id,
+    employee_id: emp.id,
+    day: day,
+    ...extraPayload,
+  });
+
+  if (!emp.schedule_records) {
+    emp.schedule_records = [];
+  }
+  const existingRecord = emp.schedule_records.find(r => r.day === day);
+  if (existingRecord) {
+    existingRecord.is_off = response.data.record.is_off;
+    existingRecord.leave_type = response.data.record.leave_type;
+  } else {
+    emp.schedule_records.push(response.data.record);
+  }
+  return response;
+};
+
+// Helper: 批次 API — 一次送出多員工 × 多天，並更新 local state
+const batchUpdateEmployeeDays = async (employeeIds, days, extraPayload = {}) => {
+  const response = await axios.post('/api/schedules/batch-records', {
+    schedule_id: schedule.value.id,
+    employee_ids: employeeIds,
+    days: days,
+    ...extraPayload,
+  });
+
+  // 用回傳的 records 更新 local state
+  if (response.data.records) {
+    for (const record of response.data.records) {
+      const emp = findEmployeeById(record.employee_id);
+      if (!emp) continue;
+      if (!emp.schedule_records) emp.schedule_records = [];
+      const existing = emp.schedule_records.find(r => r.day === record.day);
+      if (existing) {
+        existing.is_off = record.is_off;
+        existing.leave_type = record.leave_type;
+      } else {
+        emp.schedule_records.push(record);
+      }
+    }
+  }
+
+  return response;
+};
+
 const toggleDayOff = async (employee, day, event) => {
   // 如果班表已確認且操作者是訪客，則禁用所有操作
   if (schedule.value?.is_confirmed && !isAdmin.value) {
@@ -878,14 +1107,18 @@ const toggleDayOff = async (employee, day, event) => {
     return;
   }
 
-  if (!selectedEmployee.value) {
-    alert('請先選擇員工');
-    return;
-  }
-
-  if (selectedEmployee.value.id !== employee.id) {
-    alert('請先選擇員工');
-    return;
+  // 多選模式：檢查觸發員工是否在已勾選列表中
+  if (isMultiSelectMode.value) {
+    if (!selectedEmployees.value.has(employee.id)) return;
+  } else {
+    if (!selectedEmployee.value) {
+      alert('請先選擇員工');
+      return;
+    }
+    if (selectedEmployee.value.id !== employee.id) {
+      alert('請先選擇員工');
+      return;
+    }
   }
 
   const dayOfWeek = getDayOfWeek(day);
@@ -893,32 +1126,25 @@ const toggleDayOff = async (employee, day, event) => {
     return; // 不能點選店休日或公休日
   }
 
-  // 如果在假別模式，則標記假別
-  if (leaveTypeMode.value) {
-    await markLeaveType(employee, day, leaveTypeMode.value);
-    return;
-  }
-
-  // 一般模式：切換休假狀態
   try {
-    const response = await axios.post('/api/schedules/records', {
-      schedule_id: schedule.value.id,
-      employee_id: employee.id,
-      day: day
-    });
-
-    // Update local state
-    if (!employee.schedule_records) {
-      employee.schedule_records = [];
-    }
-
-    const existingRecord = employee.schedule_records.find(r => r.day === day);
-    if (existingRecord) {
-      existingRecord.is_off = response.data.record.is_off;
-      existingRecord.leave_type = response.data.record.leave_type;
+    if (isMultiSelectMode.value && selectedEmployees.value.size > 1) {
+      // 多選模式：使用批次 API
+      const employeeIds = Array.from(selectedEmployees.value);
+      const extraPayload = {};
+      if (leaveTypeMode.value) {
+        extraPayload.leave_type = leaveTypeMode.value;
+      }
+      await batchUpdateEmployeeDays(employeeIds, [day], extraPayload);
     } else {
-      employee.schedule_records.push(response.data.record);
+      // 單選模式或僅一位員工：用原有邏輯
+      const targets = getTargetEmployees(employee);
+      if (leaveTypeMode.value) {
+        await Promise.all(targets.map(emp => updateEmployeeDay(emp, day, { leave_type: leaveTypeMode.value })));
+      } else {
+        await Promise.all(targets.map(emp => updateEmployeeDay(emp, day)));
+      }
     }
+    if (isMultiSelectMode.value) resetMultiSelectTimer();
   } catch (error) {
     if (error.response?.status === 403) {
       alert(error.response.data.message);
@@ -928,35 +1154,6 @@ const toggleDayOff = async (employee, day, event) => {
   }
 };
 
-const markLeaveType = async (employee, day, type) => {
-  try {
-    const response = await axios.post('/api/schedules/records', {
-      schedule_id: schedule.value.id,
-      employee_id: employee.id,
-      day: day,
-      leave_type: type
-    });
-
-    // Update local state
-    if (!employee.schedule_records) {
-      employee.schedule_records = [];
-    }
-
-    const existingRecord = employee.schedule_records.find(r => r.day === day);
-    if (existingRecord) {
-      existingRecord.is_off = response.data.record.is_off;
-      existingRecord.leave_type = response.data.record.leave_type;
-    } else {
-      employee.schedule_records.push(response.data.record);
-    }
-  } catch (error) {
-    if (error.response?.status === 403) {
-      alert(error.response.data.message);
-    } else {
-      alert('標記假別失敗');
-    }
-  }
-};
 
 // Drag handlers
 const handleMouseDown = (employee, day, event) => {
@@ -969,13 +1166,11 @@ const handleMouseDown = (employee, day, event) => {
   // 記錄 mousedown 時間
   mouseDownTime.value = Date.now();
 
-  // 假別模式下不啟用拖曳功能
-  if (leaveTypeMode.value) {
-    return;
-  }
-
-  if (!selectedEmployee.value || selectedEmployee.value.id !== employee.id) {
-    return;
+  // 多選模式：只允許在已勾選的員工行上拖曳
+  if (isMultiSelectMode.value) {
+    if (!selectedEmployees.value.has(employee.id)) return;
+  } else {
+    if (!selectedEmployee.value || selectedEmployee.value.id !== employee.id) return;
   }
 
   const dayOfWeek = getDayOfWeek(day);
@@ -991,15 +1186,26 @@ const handleMouseDown = (employee, day, event) => {
   dragEmployee.value = employee;
   draggedDays.value = new Set([day]);
 
-  // 決定是新增還是移除休假（根據當前狀態的相反）
-  const isCurrentlyOff = isEmployeeDayOff(employee, day);
-  dragAction.value = isCurrentlyOff ? 'remove' : 'add';
+  // 決定是新增還是移除（根據起始格狀態）
+  if (leaveTypeMode.value) {
+    // 假別模式：起始格已有相同假別 → 移除，否則 → 新增
+    const currentLeaveType = getLeaveType(employee, day);
+    dragAction.value = (isEmployeeDayOff(employee, day) && currentLeaveType === leaveTypeMode.value) ? 'remove' : 'add';
+  } else {
+    // 一般模式：起始格已休假 → 移除，否則 → 新增
+    const isCurrentlyOff = isEmployeeDayOff(employee, day);
+    dragAction.value = isCurrentlyOff ? 'remove' : 'add';
+  }
 };
 
 const handleMouseEnter = (employee, day) => {
   if (employee.is_active === false) return;
-  if (!isDragging.value || dragEmployee.value?.id !== employee.id) {
-    return;
+  if (!isDragging.value) return;
+  // 多選模式：允許在任何已勾選的員工行上移動
+  if (isMultiSelectMode.value) {
+    if (!selectedEmployees.value.has(employee.id)) return;
+  } else {
+    if (dragEmployee.value?.id !== employee.id) return;
   }
 
   const dayOfWeek = getDayOfWeek(day);
@@ -1028,31 +1234,24 @@ const handleMouseUp = async () => {
   }
 
   try {
-    // 批量更新所有拖曳的日期
-    const promises = Array.from(draggedDays.value).map(async (day) => {
-      const response = await axios.post('/api/schedules/records', {
-        schedule_id: schedule.value.id,
-        employee_id: dragEmployee.value.id,
-        day: day,
-        force_action: dragAction.value // 強制設定為新增或移除
-      });
+    const targets = getTargetEmployees(dragEmployee.value);
+    const days = Array.from(draggedDays.value);
 
-      // Update local state
-      if (!dragEmployee.value.schedule_records) {
-        dragEmployee.value.schedule_records = [];
-      }
+    const extraPayload = { force_action: dragAction.value };
+    if (leaveTypeMode.value && dragAction.value === 'add') {
+      extraPayload.leave_type = leaveTypeMode.value;
+    }
 
-      const existingRecord = dragEmployee.value.schedule_records.find(r => r.day === day);
-      if (existingRecord) {
-        existingRecord.is_off = response.data.record.is_off;
-      } else {
-        dragEmployee.value.schedule_records.push(response.data.record);
-      }
+    if (targets.length > 1 || days.length > 1) {
+      // 多員工或多天：使用批次 API（一個請求搞定）
+      const employeeIds = targets.map(emp => emp.id);
+      await batchUpdateEmployeeDays(employeeIds, days, extraPayload);
+    } else if (targets.length === 1 && days.length === 1) {
+      // 只有 1 員工 × 1 天：用原有單筆 API
+      await updateEmployeeDay(targets[0], days[0], extraPayload);
+    }
 
-      return response;
-    });
-
-    await Promise.all(promises);
+    if (isMultiSelectMode.value) resetMultiSelectTimer();
   } catch (error) {
     if (error.response?.status === 403) {
       alert(error.response.data.message);
