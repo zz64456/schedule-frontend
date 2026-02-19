@@ -345,31 +345,44 @@
                         class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-2.5 sticky left-0 z-10 bg-white font-medium min-w-[100px] md:min-w-[150px]"
                       >
                         <span class="flex items-center gap-1 md:gap-2">
-                          <span class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" :style="{ backgroundColor: employee.color }"></span>
-                          <span class="text-xs md:text-sm">{{ employee.name }}</span>
+                          <span
+                            class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full"
+                            :style="{ backgroundColor: employee.color }"
+                            :class="{ 'opacity-40': employee.is_active === false }"
+                          ></span>
+                          <span
+                            class="text-xs md:text-sm"
+                            :class="{ 'text-gray-400': employee.is_active === false }"
+                          >{{ employee.name }}</span>
+                          <span
+                            v-if="employee.is_active === false"
+                            class="inline-block text-[9px] bg-gray-300 text-gray-600 px-1.5 py-0.5 rounded font-semibold"
+                          >已離職</span>
                         </span>
                       </td>
                       <td
                         v-for="day in daysInMonth"
                         :key="`emp-${employee.id}-${day}`"
-                        @mousedown="handleMouseDown(employee, day, $event)"
-                        @mouseenter="handleMouseEnter(employee, day)"
-                        @click.prevent="toggleDayOff(employee, day)"
+                        @mousedown="employee.is_active !== false && handleMouseDown(employee, day, $event)"
+                        @mouseenter="employee.is_active !== false && handleMouseEnter(employee, day)"
+                        @click.prevent="employee.is_active !== false && toggleDayOff(employee, day)"
                         :class="[
                           'border border-gray-300 transition-opacity select-none text-center font-bold text-base md:text-lg min-h-[44px] md:min-h-auto py-2.5 md:py-2',
-                          schedule?.is_confirmed && !isAdmin
+                          employee.is_active === false
                             ? 'cursor-not-allowed'
-                            : 'cursor-pointer hover:opacity-80',
+                            : schedule?.is_confirmed && !isAdmin
+                              ? 'cursor-not-allowed'
+                              : 'cursor-pointer hover:opacity-80',
                           getCellClass(employee, day),
                           isDragging && dragEmployee?.id === employee.id && draggedDays.has(day) ? 'ring-2 ring-blue-500' : ''
                         ]"
                         :style="getCellStyle(employee, day)"
                       >
-                        <span v-if="getLeaveType(employee, day) === 'personal'" class="text-yellow-900">事</span>
-                        <span v-else-if="getLeaveType(employee, day) === 'sick'" class="text-purple-900">病</span>
-                        <span v-else-if="getLeaveType(employee, day) === 'hourly'" class="text-blue-900">時</span>
-                        <span v-else-if="getLeaveType(employee, day) === 'annual'" class="text-green-900">年</span>
-                        <span v-else-if="getLeaveType(employee, day)?.startsWith('custom_')" class="text-orange-900">
+                        <span v-if="getLeaveType(employee, day) === 'personal'" :class="employee.is_active === false ? 'text-yellow-900/50' : 'text-yellow-900'">事</span>
+                        <span v-else-if="getLeaveType(employee, day) === 'sick'" :class="employee.is_active === false ? 'text-purple-900/50' : 'text-purple-900'">病</span>
+                        <span v-else-if="getLeaveType(employee, day) === 'hourly'" :class="employee.is_active === false ? 'text-blue-900/50' : 'text-blue-900'">時</span>
+                        <span v-else-if="getLeaveType(employee, day) === 'annual'" :class="employee.is_active === false ? 'text-green-900/50' : 'text-green-900'">年</span>
+                        <span v-else-if="getLeaveType(employee, day)?.startsWith('custom_')" :class="employee.is_active === false ? 'text-orange-900/50' : 'text-orange-900'">
                           {{ getCustomLeaveTypeName(getLeaveType(employee, day)) }}
                         </span>
                       </td>
@@ -794,14 +807,20 @@ const getHeaderStyle = (day) => {
 const getCellStyle = (employee, day) => {
   const dayOfWeek = getDayOfWeek(day);
   const isOff = isEmployeeDayOff(employee, day);
+  const isInactive = employee.is_active === false;
 
   // 週日或公休日：橘色背景
   if (dayOfWeek === '日' || holidays.value.has(day)) {
     return { backgroundColor: '#f7caab' };
   }
 
-  // 員工休假：紅色背景
+  // 員工休假
   if (isOff) {
+    // 離職員工：淡灰色背景（淡化）
+    if (isInactive) {
+      return { backgroundColor: '#e2e8f0' };
+    }
+    // 在職員工：紅色背景
     return { backgroundColor: '#FF0000' };
   }
 
@@ -978,6 +997,7 @@ const handleMouseDown = (employee, day, event) => {
 };
 
 const handleMouseEnter = (employee, day) => {
+  if (employee.is_active === false) return;
   if (!isDragging.value || dragEmployee.value?.id !== employee.id) {
     return;
   }
@@ -1372,7 +1392,7 @@ const loadSchedule = async () => {
       holidays.value = new Set();
     }
 
-    // Merge schedule records into employees
+    // Merge schedule records into employees（含離職員工）
     const employeeMap = {};
     Object.values(response.data.employees).forEach(deptEmployees => {
       deptEmployees.forEach(emp => {
@@ -1380,12 +1400,32 @@ const loadSchedule = async () => {
       });
     });
 
+    // 先移除之前注入的離職員工（避免切換月份時殘留）
     departments.value.forEach(dept => {
+      dept.employees = dept.employees.filter(emp => emp.is_active !== false);
+    });
+
+    departments.value.forEach(dept => {
+      // 合併在職員工的班表紀錄
       dept.employees.forEach(emp => {
         const fetchedEmp = employeeMap[emp.id];
         if (fetchedEmp) {
           emp.schedule_records = fetchedEmp.schedule_records || [];
+        } else {
+          emp.schedule_records = [];
         }
+      });
+
+      // 注入該部門的離職員工（排在末尾）
+      Object.values(response.data.employees).forEach(deptEmployees => {
+        deptEmployees.forEach(emp => {
+          if (emp.is_active === false && emp.department_id === dept.id) {
+            // 避免重複加入
+            if (!dept.employees.find(e => e.id === emp.id)) {
+              dept.employees.push(emp);
+            }
+          }
+        });
       });
     });
   } catch (error) {
