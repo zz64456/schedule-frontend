@@ -449,83 +449,99 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- Department and Employee Rows -->
-                  <template v-for="dept in departments" :key="dept.id">
-                    <tr>
-                      <td class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 font-bold text-white sticky left-0 z-10 text-sm md:text-base relative" style="background-color: #f7caab;">
-                        <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color: #e5b89a;"></div>
-                        {{ dept.name }}
+                  <!-- Branch, Department and Employee Rows -->
+                  <template v-for="group in employeeDisplayGroups" :key="`schedule-${group.key}`">
+                    <tr v-if="sortEmployeesByBranch">
+                      <td class="border-2 border-emerald-300 px-2 md:px-4 py-2 md:py-3 bg-emerald-100 text-emerald-900 sticky left-0 z-10 font-bold text-sm md:text-base">
+                        {{ group.label }}
                       </td>
                       <td
                         v-for="day in daysInMonth"
-                        :key="`dept-${dept.id}-${day}`"
-                        class="border border-gray-300 min-h-[36px] md:min-h-auto"
-                        style="background-color: #f7caab;"
+                        :key="`${group.key}-branch-${day}`"
+                        class="border border-emerald-200 bg-emerald-50 min-h-[36px] md:min-h-auto"
                       ></td>
                     </tr>
-                    <tr
-                      v-for="employee in dept.employees"
-                      :key="employee.id"
-                      :style="{
-                        backgroundColor: isMultiSelectMode && selectedEmployees.has(employee.id)
-                          ? '#EFF6FF'
-                          : selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
-                        borderLeft: isMultiSelectMode && selectedEmployees.has(employee.id)
-                          ? '4px solid #3B82F6'
-                          : selectedEmployee?.id === employee.id ? `4px solid ${employee.color}` : '2px solid #d1d5db'
-                      }"
-                    >
-                      <td
-                        class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-2.5 sticky left-0 z-10 font-medium min-w-[100px] md:min-w-[150px]"
+
+                    <template v-for="dept in group.departments" :key="`${group.key}-schedule-${dept.id}`">
+                      <tr>
+                        <td class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-3 font-bold text-white sticky left-0 z-10 text-sm md:text-base relative" style="background-color: #f7caab;">
+                          <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color: #e5b89a;"></div>
+                          {{ dept.name }}
+                        </td>
+                        <td
+                          v-for="day in daysInMonth"
+                          :key="`${group.key}-dept-${dept.id}-${day}`"
+                          class="border border-gray-300 min-h-[36px] md:min-h-auto"
+                          style="background-color: #f7caab;"
+                        ></td>
+                      </tr>
+                      <tr
+                        v-for="employee in dept.employees"
+                        :key="`${group.key}-employee-${employee.id}`"
                         :style="{
                           backgroundColor: isMultiSelectMode && selectedEmployees.has(employee.id)
                             ? '#EFF6FF'
-                            : selectedEmployee?.id === employee.id ? employee.color + '20' : 'white'
+                            : selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
+                          borderLeft: isMultiSelectMode && selectedEmployees.has(employee.id)
+                            ? '4px solid #3B82F6'
+                            : selectedEmployee?.id === employee.id ? `4px solid ${employee.color}` : '2px solid #d1d5db'
                         }"
                       >
-                        <span class="flex items-center gap-1 md:gap-2">
-                          <span
-                            class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full"
-                            :style="{ backgroundColor: employee.color }"
-                            :class="{ 'opacity-40': employee.is_active === false }"
-                          ></span>
-                          <span
-                            class="text-xs md:text-sm"
-                            :class="{ 'text-gray-400': employee.is_active === false }"
-                          >{{ employee.name }}</span>
-                          <span
-                            v-if="employee.is_active === false"
-                            class="inline-block text-[9px] bg-gray-300 text-gray-600 px-1.5 py-0.5 rounded font-semibold"
-                          >已離職</span>
-                        </span>
-                      </td>
-                      <td
-                        v-for="day in daysInMonth"
-                        :key="`emp-${employee.id}-${day}`"
-                        @mousedown="employee.is_active !== false && handleMouseDown(employee, day, $event)"
-                        @mouseenter="employee.is_active !== false && handleMouseEnter(employee, day)"
-                        @click.prevent="employee.is_active !== false && toggleDayOff(employee, day)"
-                        :class="[
-                          'border border-gray-300 transition-opacity select-none text-center font-bold text-base md:text-lg min-h-[44px] md:min-h-auto py-2.5 md:py-2',
-                          employee.is_active === false
-                            ? 'cursor-not-allowed'
-                            : schedule?.is_confirmed && !isAdmin
+                        <td
+                          class="border-2 border-gray-300 px-2 md:px-4 py-2 md:py-2.5 sticky left-0 z-10 font-medium min-w-[100px] md:min-w-[150px]"
+                          :style="{
+                            backgroundColor: isMultiSelectMode && selectedEmployees.has(employee.id)
+                              ? '#EFF6FF'
+                              : selectedEmployee?.id === employee.id ? employee.color + '20' : 'white'
+                          }"
+                        >
+                          <span class="flex items-center gap-1 md:gap-2">
+                            <span
+                              class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full"
+                              :style="{ backgroundColor: employee.color }"
+                              :class="{ 'opacity-40': employee.is_active === false }"
+                            ></span>
+                            <span
+                              class="text-xs md:text-sm"
+                              :class="{ 'text-gray-400': employee.is_active === false }"
+                            >{{ employee.name }}</span>
+                            <span
+                              v-if="employee.is_active === false"
+                              class="inline-block text-[9px] bg-gray-300 text-gray-600 px-1.5 py-0.5 rounded font-semibold"
+                            >已離職</span>
+                          </span>
+                        </td>
+                        <td
+                          v-for="day in daysInMonth"
+                          :key="`emp-${employee.id}-${day}`"
+                          @mousedown="employee.is_active !== false && handleMouseDown(employee, day, $event)"
+                          @mouseenter="employee.is_active !== false && handleMouseEnter(employee, day)"
+                          @click.prevent="employee.is_active !== false && toggleDayOff(employee, day)"
+                          :class="[
+                            'border border-gray-300 transition-opacity select-none text-center font-bold text-base md:text-lg min-h-[44px] md:min-h-auto py-2.5 md:py-2',
+                            employee.is_active === false
                               ? 'cursor-not-allowed'
-                              : 'cursor-pointer hover:opacity-80',
-                          getCellClass(employee, day),
-                          isDragging && draggedDays.has(day) && (isMultiSelectMode ? selectedEmployees.has(employee.id) : dragEmployee?.id === employee.id) ? `ring-2 ${dragRingClass}` : ''
-                        ]"
-                        :style="getCellStyle(employee, day)"
-                      >
-                        <span v-if="getLeaveType(employee, day) === 'personal'" :class="employee.is_active === false ? 'text-yellow-900/50' : 'text-yellow-900'">事</span>
-                        <span v-else-if="getLeaveType(employee, day) === 'sick'" :class="employee.is_active === false ? 'text-purple-900/50' : 'text-purple-900'">病</span>
-                        <span v-else-if="getLeaveType(employee, day) === 'hourly'" :class="employee.is_active === false ? 'text-blue-900/50' : 'text-blue-900'">時</span>
-                        <span v-else-if="getLeaveType(employee, day) === 'annual'" :class="employee.is_active === false ? 'text-green-900/50' : 'text-green-900'">年</span>
-                        <span v-else-if="getLeaveType(employee, day)?.startsWith('custom_')" :class="employee.is_active === false ? 'text-orange-900/50' : 'text-orange-900'">
-                          {{ getCustomLeaveTypeName(getLeaveType(employee, day)) }}
-                        </span>
-                      </td>
-                    </tr>
+                              : schedule?.is_confirmed && !isAdmin
+                                ? 'cursor-not-allowed'
+                                : 'cursor-pointer hover:opacity-80',
+                            getCellClass(employee, day),
+                            isDragging && draggedDays.has(day) && (isMultiSelectMode ? selectedEmployees.has(employee.id) : dragEmployee?.id === employee.id) ? `ring-2 ${dragRingClass}` : ''
+                          ]"
+                          :style="getCellStyle(employee, day)"
+                        >
+                          <span v-if="getLeaveType(employee, day) === 'personal'" :class="employee.is_active === false ? 'text-yellow-900/50' : 'text-yellow-900'">事</span>
+                          <span v-else-if="getLeaveType(employee, day) === 'sick'" :class="employee.is_active === false ? 'text-purple-900/50' : 'text-purple-900'">病</span>
+                          <span v-else-if="getLeaveType(employee, day) === 'hourly'" :class="employee.is_active === false ? 'text-blue-900/50' : 'text-blue-900'">時</span>
+                          <span v-else-if="getLeaveType(employee, day) === 'annual'" :class="employee.is_active === false ? 'text-green-900/50' : 'text-green-900'">年</span>
+                          <span
+                            v-else-if="getLeaveType(employee, day)?.startsWith('custom_')"
+                            :class="employee.is_active === false ? 'text-orange-900/50' : 'text-orange-900'"
+                          >
+                            {{ getCustomLeaveTypeName(getLeaveType(employee, day)) }}
+                          </span>
+                        </td>
+                      </tr>
+                    </template>
                   </template>
                 </tbody>
               </table>
