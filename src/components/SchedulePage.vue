@@ -50,6 +50,12 @@
                   >
                     ➕ 新增假別
                   </button>
+                  <button
+                    @click="openEditEmployeeModal"
+                    class="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700 font-medium transition-colors"
+                  >
+                    ✏️ 編輯員工
+                  </button>
                 </div>
               </div>
 
@@ -82,19 +88,33 @@
         <div class="hidden md:flex md:flex-col md:w-56 lg:w-64 bg-white rounded-xl shadow-xl border-2 border-gray-200 h-[calc(100vh-8rem)]">
           <!-- Header Section (Fixed) -->
           <div class="p-4 lg:p-6 border-b-2 border-gray-200 flex-shrink-0">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <h2 class="text-xl font-bold text-gray-800">選擇員工</h2>
-              <button
-                @click="toggleMultiSelectMode"
-                :class="[
-                  'px-3 py-1.5 text-xs rounded-lg font-medium transition-all border',
-                  isMultiSelectMode
-                    ? 'bg-blue-600 text-white border-blue-700'
-                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                ]"
-              >
-                多選
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button
+                  @click="sortEmployeesByBranch = !sortEmployeesByBranch"
+                  :aria-pressed="sortEmployeesByBranch"
+                  :class="[
+                    'px-2 py-1.5 text-xs rounded-lg font-medium transition-all border whitespace-nowrap',
+                    sortEmployeesByBranch
+                      ? 'bg-emerald-600 text-white border-emerald-700'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  ]"
+                >
+                  館別排序
+                </button>
+                <button
+                  @click="toggleMultiSelectMode"
+                  :class="[
+                    'px-2 py-1.5 text-xs rounded-lg font-medium transition-all border',
+                    isMultiSelectMode
+                      ? 'bg-blue-600 text-white border-blue-700'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                  ]"
+                >
+                  多選
+                </button>
+              </div>
             </div>
             <!-- 全選所有 -->
             <label v-if="isMultiSelectMode" class="flex items-center gap-2 mt-3 px-2 py-1.5 bg-blue-50 rounded-lg cursor-pointer">
@@ -111,94 +131,111 @@
 
           <!-- Scrollable Content Section -->
           <div class="flex-1 overflow-y-auto p-4 lg:p-6">
-            <div v-for="(dept, index) in departments" :key="dept.id" :class="index > 0 ? 'mt-6 pt-6 border-t-2 border-gray-100' : ''">
-              <div class="flex items-center justify-between mb-3">
-                <!-- 部門全選 checkbox -->
-                <label v-if="isMultiSelectMode" class="flex items-center gap-2 flex-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    :checked="isDepartmentAllChecked(dept)"
-                    @change="toggleDepartmentCheckAll(dept)"
-                    class="w-4 h-4 rounded text-blue-600"
-                  />
-                  <h3 class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
-                </label>
-                <h3 v-else class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
-                <button
-                  v-if="isAdmin && !isMultiSelectMode"
-                  @click="deleteDepartment(dept)"
-                  class="ml-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
-                  title="刪除部門"
-                >
-                  🗑️
-                </button>
-              </div>
-              <div class="space-y-2">
-                <div
-                  v-for="employee in dept.employees"
-                  :key="employee.id"
-                  class="flex items-center gap-2"
-                >
-                  <!-- 多選模式：checkbox -->
-                  <label
-                    v-if="isMultiSelectMode"
-                    class="flex items-center gap-0 flex-1 cursor-pointer"
-                    :class="{ 'opacity-50 cursor-not-allowed': employee.is_active === false }"
-                  >
+            <section
+              v-for="(group, groupIndex) in employeeDisplayGroups"
+              :key="group.key"
+              :class="groupIndex > 0 ? 'mt-8 pt-6 border-t-4 border-emerald-100' : ''"
+            >
+              <h3
+                v-if="sortEmployeesByBranch"
+                class="mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-bold"
+              >
+                {{ group.label }}
+              </h3>
+
+              <div
+                v-for="(dept, deptIndex) in group.departments"
+                :key="`${group.key}-${dept.id}`"
+                :class="deptIndex > 0 ? 'mt-6 pt-6 border-t-2 border-gray-100' : ''"
+              >
+                <div class="flex items-center justify-between mb-3">
+                  <!-- 部門全選 checkbox -->
+                  <label v-if="isMultiSelectMode" class="flex items-center gap-2 flex-1 cursor-pointer">
                     <input
                       type="checkbox"
-                      :checked="selectedEmployees.has(employee.id)"
-                      :disabled="employee.is_active === false"
-                      @change="toggleEmployeeCheck(employee.id)"
-                      class="w-4 h-4 rounded text-blue-600 mr-2 flex-shrink-0"
+                      :checked="isDepartmentAllChecked(dept)"
+                      @change="toggleDepartmentCheckAll(dept)"
+                      class="w-4 h-4 rounded text-blue-600"
                     />
-                    <span
+                    <h3 class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
+                  </label>
+                  <h3 v-else class="font-bold text-gray-700 px-3 py-2 bg-gray-100 rounded-lg text-sm uppercase tracking-wide flex-1">{{ dept.name }}</h3>
+                  <button
+                    v-if="isAdmin && !isMultiSelectMode && !sortEmployeesByBranch"
+                    @click="deleteDepartment(dept)"
+                    class="ml-2 p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
+                    title="刪除部門"
+                  >
+                    🗑️
+                  </button>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="employee in dept.employees"
+                    :key="employee.id"
+                    class="flex items-center gap-2"
+                  >
+                    <!-- 多選模式：checkbox -->
+                    <label
+                      v-if="isMultiSelectMode"
+                      class="flex items-center gap-0 flex-1 cursor-pointer"
+                      :class="{ 'opacity-50 cursor-not-allowed': employee.is_active === false }"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="selectedEmployees.has(employee.id)"
+                        :disabled="employee.is_active === false"
+                        @change="toggleEmployeeCheck(employee.id)"
+                        class="w-4 h-4 rounded text-blue-600 mr-2 flex-shrink-0"
+                      />
+                      <span
+                        :class="[
+                          'flex-1 px-4 py-3 rounded-lg text-left transition-all font-medium',
+                          selectedEmployees.has(employee.id)
+                            ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-50'
+                            : 'hover:bg-gray-50 hover:shadow-sm'
+                        ]"
+                        :style="{ borderLeft: `5px solid ${employee.color}` }"
+                      >
+                        <span class="flex items-center gap-2">
+                          <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: employee.color }"></span>
+                          {{ employee.name }}
+                        </span>
+                      </span>
+                    </label>
+                    <!-- 單選模式：原有按鈕 -->
+                    <button
+                      v-else
+                      @click="selectEmployee(employee)"
                       :class="[
                         'flex-1 px-4 py-3 rounded-lg text-left transition-all font-medium',
-                        selectedEmployees.has(employee.id)
-                          ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-50'
+                        selectedEmployee?.id === employee.id
+                          ? 'ring-2 ring-offset-2 shadow-md'
                           : 'hover:bg-gray-50 hover:shadow-sm'
                       ]"
-                      :style="{ borderLeft: `5px solid ${employee.color}` }"
+                      :style="{
+                        backgroundColor: selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
+                        borderLeft: `5px solid ${employee.color}`,
+                        ringColor: employee.color
+                      }"
                     >
                       <span class="flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: employee.color }"></span>
                         {{ employee.name }}
                       </span>
-                    </span>
-                  </label>
-                  <!-- 單選模式：原有按鈕 -->
-                  <button
-                    v-else
-                    @click="selectEmployee(employee)"
-                    :class="[
-                      'flex-1 px-4 py-3 rounded-lg text-left transition-all font-medium',
-                      selectedEmployee?.id === employee.id
-                        ? 'ring-2 ring-offset-2 shadow-md'
-                        : 'hover:bg-gray-50 hover:shadow-sm'
-                    ]"
-                    :style="{
-                      backgroundColor: selectedEmployee?.id === employee.id ? employee.color + '20' : 'white',
-                      borderLeft: `5px solid ${employee.color}`,
-                      ringColor: employee.color
-                    }"
-                  >
-                    <span class="flex items-center gap-2">
-                      <span class="w-3 h-3 rounded-full" :style="{ backgroundColor: employee.color }"></span>
-                      {{ employee.name }}
-                    </span>
-                  </button>
-                  <button
-                    v-if="isAdmin && !isMultiSelectMode"
-                    @click="deleteEmployee(employee)"
-                    class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
-                    title="刪除員工"
-                  >
-                    🗑️
-                  </button>
+                    </button>
+                    <button
+                      v-if="isAdmin && !isMultiSelectMode"
+                      @click="deleteEmployee(employee)"
+                      class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all"
+                      title="刪除員工"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         </div>
 
@@ -206,13 +243,27 @@
         <div class="block md:hidden bg-white rounded-xl shadow-xl border-2 border-gray-200 p-4">
           <div class="flex items-center justify-between mb-2">
             <label class="text-sm font-semibold text-gray-700">選擇員工</label>
-            <button
-              v-if="isAdmin"
-              @click="showMobileDepartmentManager = !showMobileDepartmentManager"
-              class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-all font-medium"
-            >
-              {{ showMobileDepartmentManager ? '關閉' : '管理部門' }}
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                @click="sortEmployeesByBranch = !sortEmployeesByBranch"
+                :aria-pressed="sortEmployeesByBranch"
+                :class="[
+                  'px-3 py-1.5 text-xs rounded-lg transition-all font-medium border',
+                  sortEmployeesByBranch
+                    ? 'bg-emerald-600 text-white border-emerald-700'
+                    : 'bg-white text-gray-600 border-gray-300'
+                ]"
+              >
+                館別排序
+              </button>
+              <button
+                v-if="isAdmin"
+                @click="showMobileDepartmentManager = !showMobileDepartmentManager"
+                class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-all font-medium"
+              >
+                {{ showMobileDepartmentManager ? '關閉' : '管理部門' }}
+              </button>
+            </div>
           </div>
 
           <!-- Department Manager (Mobile) -->
@@ -237,15 +288,30 @@
               class="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
             >
               <option value="">請選擇員工</option>
-              <optgroup v-for="dept in departments" :key="dept.id" :label="dept.name">
-                <option
-                  v-for="employee in dept.employees"
-                  :key="employee.id"
-                  :value="employee.id"
-                >
-                  {{ employee.name }}
-                </option>
-              </optgroup>
+              <template v-if="sortEmployeesByBranch">
+                <optgroup v-for="group in employeeDisplayGroups" :key="group.key" :label="group.label">
+                  <template v-for="dept in group.departments" :key="`${group.key}-${dept.id}`">
+                    <option
+                      v-for="employee in dept.employees"
+                      :key="employee.id"
+                      :value="employee.id"
+                    >
+                      {{ dept.name }}｜{{ employee.name }}
+                    </option>
+                  </template>
+                </optgroup>
+              </template>
+              <template v-else>
+                <optgroup v-for="dept in departments" :key="dept.id" :label="dept.name">
+                  <option
+                    v-for="employee in dept.employees"
+                    :key="employee.id"
+                    :value="employee.id"
+                  >
+                    {{ employee.name }}
+                  </option>
+                </optgroup>
+              </template>
             </select>
             <button
               v-if="isAdmin && selectedEmployee"
@@ -513,8 +579,17 @@
 
     <!-- Add Employee Modal -->
     <div v-if="showAddEmployeeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-      <div class="bg-white rounded-xl p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
-        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 pb-3">新增員工</h2>
+      <div class="relative bg-white rounded-xl p-6 w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <button
+          type="button"
+          @click="closeAddEmployeeModal"
+          class="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-2xl leading-none text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+          aria-label="關閉新增員工視窗"
+          title="關閉"
+        >
+          ×
+        </button>
+        <h2 class="text-2xl font-bold mb-6 pr-12 text-gray-800 border-b-2 pb-3">新增員工</h2>
         <form @submit.prevent="addEmployee">
           <div class="mb-5">
             <label class="block text-sm font-semibold mb-2 text-gray-700">員工姓名</label>
@@ -537,6 +612,20 @@
               <option value="">請選擇部門</option>
               <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                 {{ dept.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">所屬館別</label>
+            <select
+              v-model="newEmployeeForm.branch"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              required
+            >
+              <option value="">請選擇館別</option>
+              <option v-for="branch in branchOptions" :key="branch" :value="branch">
+                {{ branch }}
               </option>
             </select>
           </div>
@@ -585,6 +674,128 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Edit Employee Modal -->
+    <div v-if="showEditEmployeeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div class="bg-white rounded-xl p-6 w-full max-w-[560px] max-h-[90vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 pb-3">編輯員工</h2>
+
+        <div class="mb-5">
+          <label class="block text-sm font-semibold mb-2 text-gray-700">選擇員工</label>
+          <select
+            v-model="editEmployeeForm.employee_id"
+            @change="loadEmployeeForEditing"
+            class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+          >
+            <option value="">請選擇要編輯的員工</option>
+            <optgroup v-for="dept in departments" :key="dept.id" :label="dept.name">
+              <option
+                v-for="employee in dept.employees.filter(item => item.is_active !== false)"
+                :key="employee.id"
+                :value="employee.id"
+              >
+                {{ employee.name }}{{ employee.branch ? `（${employee.branch}）` : '' }}
+              </option>
+            </optgroup>
+          </select>
+        </div>
+
+        <form v-if="editEmployeeForm.employee_id" @submit.prevent="updateEmployee">
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">員工姓名</label>
+            <input
+              v-model="editEmployeeForm.name"
+              type="text"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              maxlength="50"
+              required
+            >
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">所屬部門</label>
+            <select
+              v-model="editEmployeeForm.department_id"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              required
+            >
+              <option value="">請選擇部門</option>
+              <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                {{ dept.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm font-semibold mb-2 text-gray-700">所屬館別</label>
+            <select
+              v-model="editEmployeeForm.branch"
+              class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              required
+            >
+              <option value="">請選擇館別</option>
+              <option v-for="branch in branchOptions" :key="branch" :value="branch">
+                {{ branch }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm font-semibold mb-3 text-gray-700">代表色</label>
+            <div v-if="editAvailableColors.length === 0" class="text-red-600 font-medium">
+              ⚠️ 沒有可用的代表色
+            </div>
+            <div v-else class="grid grid-cols-5 gap-3">
+              <button
+                v-for="color in editAvailableColors"
+                :key="color.hex"
+                type="button"
+                @click="editEmployeeForm.color = color.hex"
+                :class="[
+                  'flex flex-col items-center p-3 rounded-lg border-2 transition-all',
+                  editEmployeeForm.color === color.hex
+                    ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-300'
+                    : 'border-gray-200 hover:border-gray-400 hover:shadow-md'
+                ]"
+              >
+                <div
+                  class="w-10 h-10 rounded-full mb-2 shadow-md"
+                  :style="{ backgroundColor: color.hex }"
+                ></div>
+                <span class="text-xs font-medium text-gray-700">{{ color.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3 mt-6 pt-4 border-t-2">
+            <button
+              type="button"
+              @click="closeEditEmployeeModal"
+              class="px-5 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-all"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              :disabled="!editEmployeeForm.color || editAvailableColors.length === 0"
+              class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              儲存變更
+            </button>
+          </div>
+        </form>
+
+        <div v-else class="flex justify-end pt-4 border-t-2">
+          <button
+            type="button"
+            @click="closeEditEmployeeModal"
+            class="px-5 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium transition-all"
+          >
+            關閉
+          </button>
+        </div>
       </div>
     </div>
 
@@ -725,6 +936,7 @@ const getTaiwanDateTime = () => {
 const { year: currentYear, month: currentMonth } = getTaiwanDateTime();
 const selectedYear = ref(currentYear);
 const selectedMonth = ref(currentMonth);
+const branchOptions = ['一館', '二館', '三館', '四館'];
 const isAdmin = ref(false);
 const adminName = ref('');
 const showLoginModal = ref(false);
@@ -736,13 +948,23 @@ const loginForm = ref({
 // Management State
 const showManagementMenu = ref(false);
 const showAddEmployeeModal = ref(false);
+const showEditEmployeeModal = ref(false);
 const showAddDepartmentModal = ref(false);
 const showMobileDepartmentManager = ref(false);
 const availableColors = ref([]);
 const newEmployeeForm = ref({
   name: '',
   department_id: '',
-  color: ''
+  color: '',
+  branch: ''
+});
+const editAvailableColors = ref([]);
+const editEmployeeForm = ref({
+  employee_id: '',
+  name: '',
+  department_id: '',
+  color: '',
+  branch: ''
 });
 const newDepartmentForm = ref({
   name: '',
@@ -775,6 +997,7 @@ const dragRingClass = computed(() => {
 
 // Multi-Select Employee State
 const isMultiSelectMode = ref(false);
+const sortEmployeesByBranch = ref(false);
 const selectedEmployees = ref(new Set());
 let multiSelectTimer = null;
 
@@ -802,6 +1025,57 @@ const years = computed(() => {
 const daysInMonth = computed(() => {
   const westernYear = selectedYear.value + 1911;
   return new Date(westernYear, selectedMonth.value, 0).getDate();
+});
+
+const knownBranchOrder = branchOptions;
+
+const getBranchSortOrder = (branch) => {
+  if (branch === '未設定館別') return Number.MAX_SAFE_INTEGER;
+
+  const knownIndex = knownBranchOrder.indexOf(branch);
+  if (knownIndex !== -1) return knownIndex + 1;
+
+  const numericMatch = branch.match(/^(\d+)館$/);
+  return numericMatch ? Number(numericMatch[1]) : knownBranchOrder.length + 1;
+};
+
+const employeeDisplayGroups = computed(() => {
+  if (!sortEmployeesByBranch.value) {
+    return [{ key: 'department-order', label: '', departments: departments.value }];
+  }
+
+  const branches = new Map();
+
+  departments.value.forEach(dept => {
+    dept.employees.forEach(employee => {
+      const branch = employee.branch?.trim() || '未設定館別';
+      if (!branches.has(branch)) {
+        branches.set(branch, new Map());
+      }
+
+      const branchDepartments = branches.get(branch);
+      if (!branchDepartments.has(dept.id)) {
+        branchDepartments.set(dept.id, []);
+      }
+      branchDepartments.get(dept.id).push(employee);
+    });
+  });
+
+  return Array.from(branches.entries())
+    .sort(([branchA], [branchB]) => {
+      const orderDifference = getBranchSortOrder(branchA) - getBranchSortOrder(branchB);
+      return orderDifference || branchA.localeCompare(branchB, 'zh-Hant', { numeric: true });
+    })
+    .map(([branch, branchDepartments]) => ({
+      key: `branch-${branch}`,
+      label: branch,
+      departments: departments.value
+        .map(dept => ({
+          ...dept,
+          employees: branchDepartments.get(dept.id) || []
+        }))
+        .filter(dept => dept.employees.length > 0)
+    }));
 });
 
 // Methods
@@ -1672,7 +1946,8 @@ const openAddEmployeeModal = async () => {
     newEmployeeForm.value = {
       name: '',
       department_id: '',
-      color: ''
+      color: '',
+      branch: ''
     };
     
     showAddEmployeeModal.value = true;
@@ -1686,7 +1961,8 @@ const closeAddEmployeeModal = () => {
   newEmployeeForm.value = {
     name: '',
     department_id: '',
-    color: ''
+    color: '',
+    branch: ''
   };
   availableColors.value = [];
 };
@@ -1711,6 +1987,95 @@ const addEmployee = async () => {
       alert('驗證錯誤：\n' + errors.join('\n'));
     } else {
       alert('新增員工失敗');
+    }
+  }
+};
+
+const openEditEmployeeModal = () => {
+  showManagementMenu.value = false;
+  editEmployeeForm.value = {
+    employee_id: '',
+    name: '',
+    department_id: '',
+    color: '',
+    branch: ''
+  };
+  editAvailableColors.value = [];
+  showEditEmployeeModal.value = true;
+};
+
+const closeEditEmployeeModal = () => {
+  showEditEmployeeModal.value = false;
+  editEmployeeForm.value = {
+    employee_id: '',
+    name: '',
+    department_id: '',
+    color: '',
+    branch: ''
+  };
+  editAvailableColors.value = [];
+};
+
+const loadEmployeeForEditing = async () => {
+  if (!editEmployeeForm.value.employee_id) {
+    editAvailableColors.value = [];
+    return;
+  }
+
+  const employee = findEmployeeById(Number(editEmployeeForm.value.employee_id));
+  if (!employee) {
+    alert('找不到指定的員工');
+    return;
+  }
+
+  editEmployeeForm.value = {
+    employee_id: employee.id,
+    name: employee.name,
+    department_id: employee.department_id,
+    color: employee.color,
+    branch: employee.branch || ''
+  };
+
+  try {
+    const response = await axios.get('/api/employees/available-colors', {
+      params: { employee_id: employee.id }
+    });
+    editAvailableColors.value = response.data.colors;
+  } catch (error) {
+    editAvailableColors.value = [];
+    alert(error.response?.data?.message || '載入可用顏色失敗');
+  }
+};
+
+const updateEmployee = async () => {
+  const employeeId = Number(editEmployeeForm.value.employee_id);
+  const wasSelected = selectedEmployee.value?.id === employeeId;
+
+  try {
+    const response = await axios.put(`/api/employees/${employeeId}`, {
+      name: editEmployeeForm.value.name,
+      department_id: editEmployeeForm.value.department_id,
+      color: editEmployeeForm.value.color,
+      branch: editEmployeeForm.value.branch
+    });
+
+    if (response.data.success) {
+      closeEditEmployeeModal();
+      await loadEmployees();
+      await loadSchedule();
+
+      if (wasSelected) {
+        selectedEmployee.value = findEmployeeById(employeeId);
+      }
+
+      alert('員工資料已更新！');
+    }
+  } catch (error) {
+    if (error.response?.data?.errors) {
+      const errors = Object.values(error.response.data.errors).flat();
+      alert('驗證錯誤：\n' + errors.join('\n'));
+    } else {
+      alert(error.response?.data?.message || '更新員工失敗');
     }
   }
 };
